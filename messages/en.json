@@ -1,0 +1,200 @@
+{
+  "common": {
+    "appName": "FitAI",
+    "loading": "Loading...",
+    "error": "Error",
+    "save": "Save",
+    "cancel": "Cancel",
+    "next": "Next",
+    "back": "Back",
+    "submit": "Submit",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "getStarted": "Get Started",
+    "learnMore": "Learn More"
+  },
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "progress": "Progress",
+    "settings": "Settings"
+  },
+  "landing": {
+    "heroTitle": "Your Personal AI Fitness Coach",
+    "heroDescription": "Get personalized nutrition and workout plans powered by advanced AI. Transform your body, one day at a time.",
+    "getMyPlan": "Get My Plan",
+    "features": {
+      "mealPlans": {
+        "title": "Personalized Meal Plans",
+        "description": "AI-generated meal plans tailored to your goals, preferences, and dietary restrictions."
+      },
+      "workoutPlans": {
+        "title": "Custom Workout Programs",
+        "description": "Get workout routines designed for your fitness level, goals, and available equipment."
+      },
+      "aiCoach": {
+        "title": "AI Coach Support",
+        "description": "Ask questions and get instant, personalized advice from our AI fitness coach."
+      }
+    },
+    "testimonials": {
+      "title": "What Our Users Say",
+      "subtitle": "Join thousands of satisfied users transforming their lives"
+    },
+    "pricing": {
+      "title": "Simple, Transparent Pricing",
+      "subtitle": "Start free, upgrade when you're ready"
+    },
+    "cta": {
+      "title": "Ready to Transform Your Life?",
+      "description": "Join thousands of users who have achieved their fitness goals with our AI-powered platform.",
+      "startJourney": "Start Your Journey"
+    }
+  },
+  "onboarding": {
+    "steps": {
+      "personalInfo": "Personal Information",
+      "bodyMetrics": "Body Metrics",
+      "goals": "Fitness Goals",
+      "preferences": "Diet Preferences"
+    },
+    "personalInfo": {
+      "name": "Full Name",
+      "namePlaceholder": "Enter your full name",
+      "gender": "Gender",
+      "genderSelect": "Select gender",
+      "male": "Male",
+      "female": "Female",
+      "other": "Other",
+      "age": "Age",
+      "agePlaceholder": "Enter your age"
+    },
+    "bodyMetrics": {
+      "height": "Height (cm)",
+      "heightPlaceholder": "e.g., 175",
+      "weight": "Weight (kg)",
+      "weightPlaceholder": "e.g., 70",
+      "activityLevel": "Activity Level",
+      "activitySelect": "Select activity level",
+      "sedentary": "Sedentary (little to no exercise)",
+      "lightlyActive": "Lightly Active (light exercise 1-3 days/week)",
+      "moderatelyActive": "Moderately Active (moderate exercise 3-5 days/week)",
+      "veryActive": "Very Active (hard exercise 6-7 days/week)"
+    },
+    "goals": {
+      "fitnessGoal": "Primary Fitness Goal",
+      "goalSelect": "Select your goal",
+      "muscleGain": "Muscle Gain",
+      "fatLoss": "Fat Loss",
+      "trainingFrequency": "Training Frequency (days per week)",
+      "frequencyPlaceholder": "e.g., 4",
+      "equipment": "Equipment Access (select all that apply)",
+      "equipmentDumbbells": "Dumbbells",
+      "equipmentBarbell": "Barbell",
+      "equipmentBands": "Resistance Bands",
+      "equipmentPullUpBar": "Pull-up Bar",
+      "equipmentGym": "Gym Membership",
+      "equipmentNone": "None (Bodyweight)"
+    },
+    "preferences": {
+      "dietPreferences": "Diet Preferences (select all that apply)",
+      "vegetarian": "Vegetarian",
+      "vegan": "Vegan",
+      "keto": "Keto",
+      "paleo": "Paleo",
+      "mediterranean": "Mediterranean",
+      "noRestrictions": "No Restrictions",
+      "allergies": "Allergies or Food Restrictions (comma separated)",
+      "allergiesPlaceholder": "e.g., Peanuts, Dairy, Gluten",
+      "completeSetup": "Complete Setup"
+    }
+  },
+  "dashboard": {
+    "welcome": "Welcome back, {name}! 👋",
+    "personalizedPlan": "Here's your personalized fitness and nutrition plan",
+    "completeProfile": "Complete Your Profile",
+    "completeOnboarding": "Please complete your onboarding to view your personalized dashboard.",
+    "metrics": {
+      "bmi": "BMI",
+      "dailyCalories": "Daily Calories",
+      "protein": "Protein (g)",
+      "carbs": "Carbs (g)",
+      "fats": "Fats (g)"
+    },
+    "tabs": {
+      "mealPlan": "Meal Plan",
+      "workoutPlan": "Workout Plan",
+      "aiCoach": "AI Coach"
+    },
+    "actions": {
+      "regeneratePlans": "Regenerate Plans",
+      "exportPDF": "Export PDF",
+      "generateMealPlan": "Generate Meal Plan",
+      "generateWorkoutPlan": "Generate Workout Plan",
+      "generating": "Generating your {type}..."
+    },
+    "mealPlan": {
+      "noPlans": "No meal plans yet.",
+      "day": "Day {day} - {date}",
+      "calories": "{calories} cal",
+      "macros": "P: {protein}g | C: {carbs}g | F: {fats}g",
+      "breakfast": "Breakfast",
+      "lunch": "Lunch",
+      "dinner": "Dinner",
+      "snack": "Snack",
+      "ingredients": "Ingredients:",
+      "instructions": "Instructions:"
+    },
+    "workoutPlan": {
+      "noPlans": "No workout plans yet.",
+      "day": "Day {day} - {date}",
+      "duration": "{duration} min",
+      "setsReps": "{sets} sets × {reps} reps",
+      "rest": "Rest: {seconds}s",
+      "target": "Target: {muscles}",
+      "notes": "Notes:"
+    }
+  },
+  "progress": {
+    "title": "Progress Tracking",
+    "description": "Monitor your fitness journey and see your improvements",
+    "stats": {
+      "weightLoss": "Weight Loss",
+      "workouts": "Workouts",
+      "avgCalories": "Avg Calories",
+      "consistency": "Consistency"
+    },
+    "charts": {
+      "weightProgress": "Weight Progress",
+      "dailyCalories": "Daily Calories",
+      "workoutFrequency": "Workout Frequency",
+      "weight": "Weight (kg)",
+      "calories": "Calories",
+      "workoutsPerDay": "Workouts per Day"
+    },
+    "goals": {
+      "yourGoals": "Your Goals",
+      "fitnessGoal": "Fitness Goal:",
+      "targetCalories": "Target Calories:",
+      "trainingFrequency": "Training Frequency:",
+      "daysPerWeek": "days/week"
+    },
+    "metrics": {
+      "currentMetrics": "Current Metrics",
+      "bmi": "BMI:",
+      "protein": "Protein:",
+      "carbs": "Carbs:",
+      "fats": "Fats:",
+      "perDay": "g/day"
+    }
+  },
+  "aiCoach": {
+    "title": "AI Fitness Coach",
+    "subtitle": "Powered by Gemini AI",
+    "placeholder": "Ask me anything about fitness or nutrition...",
+    "send": "Send",
+    "thinking": "Thinking..."
+  }
+}
+
