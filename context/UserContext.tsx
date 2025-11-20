@@ -1,9 +1,8 @@
-// context/UserContext.tsx
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-// Типизация (оставляем как есть или упрощаем)
+// Типизация пользователя
 type UserType = {
   uid: string;
   displayName: string;
@@ -13,7 +12,7 @@ type UserType = {
 interface UserContextType {
   user: UserType | null;
   loading: boolean;
-  userData: any; // Данные профиля (вес, рост и т.д.)
+  userData: any; 
   setUserData: (data: any) => void;
 }
 
@@ -22,30 +21,38 @@ const UserContext = createContext<UserContextType>({} as UserContextType);
 export const useUser = () => useContext(UserContext);
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
-  // Жестко задаем пользователя "Admin"
+  // 1. ЖЕСТКО ЗАДАЕМ ПОЛЬЗОВАТЕЛЯ (Фейковый вход)
   const [user] = useState<UserType>({
-    uid: "local-user-1",
+    uid: "local-admin-user",
     displayName: "Admin",
-    email: "admin@local.host",
+    email: "admin@myself.com",
   });
   
   const [userData, setUserDataState] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // При загрузке ищем сохраненные данные в браузере
+  // 2. ПРИ ЗАГРУЗКЕ ЧИТАЕМ ИЗ БРАУЗЕРА (LocalStorage)
   useEffect(() => {
-    const localData = localStorage.getItem("fitai_user_data");
-    if (localData) {
-      setUserDataState(JSON.parse(localData));
+    // Проверяем, есть ли данные в браузере
+    if (typeof window !== 'undefined') {
+      const localData = localStorage.getItem("fitai_user_data");
+      if (localData) {
+        try {
+          setUserDataState(JSON.parse(localData));
+        } catch (e) {
+          console.error("Error parsing local data", e);
+        }
+      }
     }
     setLoading(false);
   }, []);
 
-  // Функция сохранения данных
+  // 3. ФУНКЦИЯ СОХРАНЕНИЯ (Вместо базы данных)
   const setUserData = (data: any) => {
     setUserDataState(data);
-    // Сохраняем в браузер
-    localStorage.setItem("fitai_user_data", JSON.stringify(data));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("fitai_user_data", JSON.stringify(data));
+    }
   };
 
   return (
@@ -54,4 +61,3 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     </UserContext.Provider>
   );
 };
-
