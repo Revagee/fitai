@@ -18,23 +18,77 @@ import { useTranslations } from 'next-intl'
 import Button from './ui/Button'
 import Card from './ui/Card'
 import Navbar from './ui/Navbar'
+import { useUser } from '@/context/UserContext'
+import { calculateUserMetrics } from '@/lib/utils'
 
 export default function Dashboard() {
   const t = useTranslations('dashboard')
-  const tCommon = useTranslations('common')
+  const { userData } = useUser()
   const [activeTab, setActiveTab] = useState<'meal' | 'workout' | 'coach'>('meal')
   const [loading, setLoading] = useState(false)
+  const [metrics, setMetrics] = useState<any>(null)
 
-  // Моки
-  const mealPlans = [];
-  const workoutPlans = [];
-  const metrics = null;
+  // Инициализация метрик и данных при загрузке
+  useEffect(() => {
+    if (userData) {
+      setMetrics(calculateUserMetrics(userData));
+    }
+  }, [userData]);
 
-  // Остальная логика удаления user и базы
-  const regeneratePlans = async () => {};
-  const exportPDF = () => { alert('PDF export feature coming soon!'); };
+  // --- АДАПТЕР ДАННЫХ (Превращаем ответ AI в формат Дашборда) ---
+  
+  // 1. План питания
+  const mealPlans: any[] = userData?.plan?.mealPlan ? [{
+    id: 'mp-1',
+    day: 1,
+    date: new Date().toISOString(),
+    totalCalories: userData.plan.mealPlan.calories || 0,
+    totalProtein: userData.plan.mealPlan.macros?.protein || '0g',
+    totalCarbs: userData.plan.mealPlan.macros?.carbs || '0g',
+    totalFats: userData.plan.mealPlan.macros?.fats || '0g',
+    meals: Array.isArray(userData.plan.mealPlan.dailyMeals) 
+      ? userData.plan.mealPlan.dailyMeals.map((meal: any, index: number) => ({
+          id: `meal-${index}`,
+          name: meal.meal || `Meal ${index + 1}`,
+          description: Array.isArray(meal.options) ? meal.options.join(', ') : meal.options,
+          calories: 0, // AI часто не дает калории на каждое блюдо отдельно
+          protein: 0,
+          carbs: 0,
+          fats: 0,
+          ingredients: []
+        }))
+      : []
+  }] : [];
 
-  // остальная логика и рендеринг оставим как есть, передавая user={user} в AICoach (можно = null)
+  // 2. План тренировок
+  const workoutPlans: any[] = Array.isArray(userData?.plan?.workoutPlan) 
+    ? userData.plan.workoutPlan.map((day: any, index: number) => ({
+        id: `wp-${index}`,
+        day: index + 1,
+        date: new Date().toISOString(),
+        estimatedDuration: 45, // Примерное время
+        exercises: Array.isArray(day.exercises) ? day.exercises.map((ex: any, i: number) => ({
+           id: `ex-${index}-${i}`,
+           name: ex.name,
+           sets: ex.sets,
+           reps: ex.reps,
+           restSeconds: 60,
+           notes: ex.notes || '',
+           muscleGroups: []
+        })) : []
+      })) 
+    : [];
+
+
+  const regeneratePlans = async () => {
+     alert("Regenerate feature requires re-running the AI prompt (Not implemented in this demo).");
+  };
+  
+  const exportPDF = () => { 
+      alert('PDF export feature coming soon!'); 
+  };
+
+  // --- ОТРИСОВКА ---
 
   if (!metrics) {
     return (
@@ -58,7 +112,7 @@ export default function Dashboard() {
     )
   }
 
-  const mealIcons = {
+  const mealIcons: any = {
     breakfast: <Coffee className="w-5 h-5" />,
     lunch: <Sunset className="w-5 h-5" />,
     dinner: <ChefHat className="w-5 h-5" />,
@@ -77,7 +131,7 @@ export default function Dashboard() {
           className="mb-8"
         >
           <h1 className="text-4xl font-bold mb-2">
-            Welcome back, User! 👋
+            Welcome back, {userData?.name || 'User'}! 👋
           </h1>
           <p className="text-gray-600">
             Here&apos;s your personalized fitness and nutrition plan
@@ -197,51 +251,36 @@ export default function Dashboard() {
                 </Card>
               ) : mealPlans.length === 0 ? (
                 <Card className="text-center py-12">
-                  <p className="text-gray-600 mb-4">No meal plans yet.</p>
-                  <Button onClick={regeneratePlans}>Generate Meal Plan</Button>
+                  <p className="text-gray-600 mb-4">No meal plans found. Try generating one!</p>
                 </Card>
               ) : (
-                mealPlans.map((plan) => (
+                mealPlans.map((plan: any) => (
                   <Card key={plan.id} hover>
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xl font-bold flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-fitness-orange" />
-                        Day {plan.day} - {new Date(plan.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                        Day {plan.day}
                       </h3>
                       <div className="flex gap-4 text-sm">
                         <span className="font-semibold">{plan.totalCalories} cal</span>
                         <span className="text-gray-600">
-                          P: {plan.totalProtein}g | C: {plan.totalCarbs}g | F: {plan.totalFats}g
+                           P: {plan.totalProtein} | C: {plan.totalCarbs} | F: {plan.totalFats}
                         </span>
                       </div>
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
-                      {plan.meals.map((meal, index) => (
+                      {plan.meals.map((meal: any, index: number) => (
                         <div
                           key={meal.id || index}
                           className="p-4 rounded-lg bg-gray-50 border border-gray-200"
                         >
                           <div className="flex items-center gap-2 mb-2">
-                            {mealIcons[meal.name.toLowerCase().includes('breakfast') ? 'breakfast' : meal.name.toLowerCase().includes('lunch') ? 'lunch' : meal.name.toLowerCase().includes('dinner') ? 'dinner' : 'snack' as keyof typeof mealIcons]}
+                            {mealIcons[meal.name.toLowerCase().includes('breakfast') ? 'breakfast' : meal.name.toLowerCase().includes('lunch') ? 'lunch' : meal.name.toLowerCase().includes('dinner') ? 'dinner' : 'snack'] || <Coffee className="w-5 h-5" />}
                             <h4 className="font-semibold">{meal.name}</h4>
                           </div>
                           <p className="text-sm text-gray-600 mb-2">
                             {meal.description}
                           </p>
-                          <div className="flex gap-4 text-xs text-gray-600">
-                            <span>{meal.calories} cal</span>
-                            <span>P: {meal.protein}g</span>
-                            <span>C: {meal.carbs}g</span>
-                            <span>F: {meal.fats}g</span>
-                          </div>
-                          {meal.ingredients && meal.ingredients.length > 0 && (
-                            <div className="mt-3">
-                              <p className="text-xs font-medium mb-1">Ingredients:</p>
-                              <p className="text-xs text-gray-600">
-                                {meal.ingredients.join(', ')}
-                              </p>
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -260,16 +299,15 @@ export default function Dashboard() {
                 </Card>
               ) : workoutPlans.length === 0 ? (
                 <Card className="text-center py-12">
-                  <p className="text-gray-600 mb-4">No workout plans yet.</p>
-                  <Button onClick={regeneratePlans}>Generate Workout Plan</Button>
+                  <p className="text-gray-600 mb-4">No workout plans found.</p>
                 </Card>
               ) : (
-                workoutPlans.map((plan) => (
+                workoutPlans.map((plan: any) => (
                   <Card key={plan.id} hover>
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xl font-bold flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-fitness-purple" />
-                        Day {plan.day} - {new Date(plan.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                        Day {plan.day}
                       </h3>
                       <div className="text-sm text-gray-600">
                         <Dumbbell className="w-4 h-4 inline mr-1" />
@@ -277,7 +315,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="space-y-3">
-                      {plan.exercises.map((exercise, index) => (
+                      {plan.exercises.map((exercise: any, index: number) => (
                         <div
                           key={exercise.id || index}
                           className="p-4 rounded-lg bg-gray-50 border border-gray-200"
@@ -290,9 +328,6 @@ export default function Dashboard() {
                           </div>
                           <div className="flex gap-4 text-xs text-gray-600">
                             <span>Rest: {exercise.restSeconds}s</span>
-                            {exercise.muscleGroups && exercise.muscleGroups.length > 0 && (
-                              <span>Target: {exercise.muscleGroups.join(', ')}</span>
-                            )}
                           </div>
                           {exercise.notes && (
                             <p className="text-xs text-gray-600 mt-2 italic">
@@ -312,10 +347,7 @@ export default function Dashboard() {
             <Card className="text-center py-12">
               <h3 className="text-2xl font-bold mb-2">AI Coach</h3>
               <p className="text-gray-600 mb-4">
-                This feature is under development.
-              </p>
-              <p className="text-gray-600">
-                You can customize your meal and workout plans directly.
+                This feature is currently simplified.
               </p>
             </Card>
           )}
@@ -324,4 +356,3 @@ export default function Dashboard() {
     </div>
   )
 }
-

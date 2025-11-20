@@ -100,7 +100,10 @@ export default function Onboarding() {
         };
 
         setUserData(dataToSave);
-        router.push('/dashboard');
+        
+        // ВМЕСТО router.push ИСПОЛЬЗУЕМ ЖЕСТКУЮ ПЕРЕЗАГРУЗКУ
+        // Это заставит браузер принудительно считать сохраненные данные
+        window.location.href = '/dashboard'; 
       } else {
         // ВОТ ЭТОГО НЕ ХВАТАЛО:
         alert("Ошибка: Искусственный интеллект не вернул план. Проверь консоль браузера (F12) на наличие ошибок API.");
