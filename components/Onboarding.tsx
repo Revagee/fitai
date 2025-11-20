@@ -81,30 +81,33 @@ export default function Onboarding() {
     }
   };
 
+  // components/Onboarding.tsx
+
   const handleGenerate = async () => {
     setIsLoading(true);
     try {
-      // Генерируем план через AI
+      console.log("Начинаем генерацию..."); // Для отладки
+      
       const generatedPlan = await generateFitnessPlan(formData);
       
+      console.log("Результат API:", generatedPlan); // Посмотрим в консоли, что пришло
+
       if (generatedPlan && user) {
-        // 4. СОБИРАЕМ ДАННЫЕ
         const dataToSave = {
           ...formData,
           plan: generatedPlan,
-          createdAt: new Date().toISOString() // Используем строку для даты, так безопаснее для JSON
+          createdAt: new Date().toISOString()
         };
 
-        // 5. СОХРАНЯЕМ ЛОКАЛЬНО (Вместо Firebase)
-        // Используем функцию из нашего нового UserContext
         setUserData(dataToSave);
-        
-        // Переходим в дашборд
         router.push('/dashboard');
+      } else {
+        // ВОТ ЭТОГО НЕ ХВАТАЛО:
+        alert("Ошибка: Искусственный интеллект не вернул план. Проверь консоль браузера (F12) на наличие ошибок API.");
       }
     } catch (error) {
-      console.error("Error generating plan:", error);
-      alert("Something went wrong while generating your plan. Please check your API key.");
+      console.error("Критическая ошибка:", error);
+      alert("Произошла ошибка при генерации. Проверьте API ключ.");
     } finally {
       setIsLoading(false);
     }

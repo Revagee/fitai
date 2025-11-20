@@ -1,65 +1,76 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Инициализация клиента Gemini
-// Убедись, что в .env.local есть ключ NEXT_PUBLIC_GEMINI_API_KEY
-const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(apiKey);
+// Проверка ключа
+const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey || "");
 
 export async function generateFitnessPlan(userData: any) {
   if (!apiKey) {
-    throw new Error("API Key not found. Please check .env.local");
+    console.error("API Key is missing!");
+    alert("В файле .env.local нет ключа API. Процесс остановлен.");
+    return null;
   }
 
   try {
-    // Используем модель gemini-pro (текстовая)
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    // Используем модель gemini-1.5-flash с настройкой JSON
+    // Это ГАРАНТИРУЕТ, что ответ будет в правильном формате
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
 
-    // Формируем промпт (запрос) для нейросети на основе данных пользователя
     const prompt = `
-      Act as a professional fitness coach and nutritionist.
-      Create a personalized workout and meal plan based on this user profile:
+      You are an elite fitness coach. Create a JSON fitness plan for this user:
       
-      Name: ${userData.name}
-      Gender: ${userData.gender}
-      Age: ${userData.age}
-      Height: ${userData.height} cm
-      Weight: ${userData.weight} kg
-      Activity Level: ${userData.activityLevel}
-      Goal: ${userData.fitnessGoal}
-      Training Frequency: ${userData.trainingFrequency} days per week
-      Equipment Access: ${userData.equipmentAccess.join(', ')}
-      Diet Preferences: ${userData.dietPreferences.join(', ')}
-      Allergies/Injuries: ${userData.allergies}
+      User Profile:
+      - Name: ${userData.name}
+      - Gender: ${userData.gender}
+      - Age: ${userData.age}
+      - Height: ${userData.height} cm
+      - Weight: ${userData.weight} kg
+      - Activity: ${userData.activityLevel}
+      - Goal: ${userData.fitnessGoal}
+      - Frequency: ${userData.trainingFrequency} days/week
+      - Equipment: ${userData.equipmentAccess.join(', ')}
+      - Diet: ${userData.dietPreferences.join(', ')}
+      - Allergies: ${userData.allergies}
 
-      Please provide a detailed response in JSON format with the following structure (do not use markdown code blocks, just raw JSON):
+      REQUIRED JSON STRUCTURE:
       {
         "workoutPlan": [
-          { "day": "Day 1", "focus": "...", "exercises": [{ "name": "...", "sets": "...", "reps": "..." }] }
+          { 
+            "day": "Day 1", 
+            "focus": "Legs/Cardio", 
+            "exercises": [
+              { "name": "Squats", "sets": "3", "reps": "12" }
+            ] 
+          }
         ],
         "mealPlan": {
-          "calories": 2500,
-          "macros": { "protein": "...", "carbs": "...", "fats": "..." },
+          "calories": 2000,
+          "macros": { "protein": "150g", "carbs": "200g", "fats": "60g" },
           "dailyMeals": [
-             { "meal": "Breakfast", "options": ["..."] }
+             { "meal": "Breakfast", "options": ["Oatmeal with berries"] }
           ]
         },
-        "tips": ["Tip 1", "Tip 2"]
+        "tips": ["Drink water", "Sleep 8 hours"]
       }
     `;
 
-    // Отправляем запрос
+    console.log("Отправка запроса к Gemini...");
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
+    
+    console.log("Ответ получен:", text);
 
-    // Пытаемся очистить ответ от лишних символов (иногда AI добавляет ```json ... ```)
-    const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-
-    return JSON.parse(cleanedText);
+    // Парсим JSON
+    const jsonResponse = JSON.parse(text);
+    return jsonResponse;
 
   } catch (error) {
-    console.error("Error in Gemini API:", error);
-    // Возвращаем заглушку в случае ошибки, чтобы приложение не падало
+    console.error("ОШИБКА В GEMINI API:", error);
+    // Если ошибка связана с ключом или квотами, покажем её
     return null;
   }
 }

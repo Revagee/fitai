@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.2.1",
+    "@google/generative-ai": "^0.24.1",
     "better-sqlite3": "^12.4.1",
     "clsx": "^2.0.0",
     "firebase": "^12.5.0",
