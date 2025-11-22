@@ -18,7 +18,8 @@
     "home": "Home",
     "dashboard": "Dashboard",
     "progress": "Progress",
-    "settings": "Settings"
+    "settings": "Settings",
+    "profile": "Profile"
   },
   "landing": {
     "heroTitle": "Your Personal AI Fitness Coach",
@@ -58,6 +59,20 @@
       "bodyMetrics": "Body Metrics",
       "goals": "Fitness Goals",
       "preferences": "Diet Preferences"
+    },
+    "error": "Error",
+    "back": "Back",
+    "next": "Next",
+    "generating": "Generating plan...",
+    "personalInfo": {
+      "description": "Tell us about yourself so we can create a personalized plan"
+    },
+    "goals": {
+      "description": "Define your fitness goals and available equipment",
+      "daysPerWeek": "days per week"
+    },
+    "preferences": {
+      "description": "Your dietary preferences and restrictions"
     },
     "personalInfo": {
       "name": "Full Name",
@@ -132,7 +147,10 @@
       "exportPDF": "Export PDF",
       "generateMealPlan": "Generate Meal Plan",
       "generateWorkoutPlan": "Generate Workout Plan",
-      "generating": "Generating your {type}..."
+      "generating": "Generating your {type}...",
+      "regenerateError": "Error regenerating plan. Please try again.",
+      "noDataToExport": "No data to export",
+      "viewFullMealPlan": "View Full Meal Plan"
     },
     "mealPlan": {
       "noPlans": "No meal plans yet.",
@@ -144,7 +162,8 @@
       "dinner": "Dinner",
       "snack": "Snack",
       "ingredients": "Ingredients:",
-      "instructions": "Instructions:"
+      "instructions": "Instructions:",
+      "noOptionsAvailable": "No options available"
     },
     "workoutPlan": {
       "noPlans": "No workout plans yet.",
@@ -189,12 +208,89 @@
       "perDay": "g/day"
     }
   },
+  "mealPlan": {
+    "title": "Weekly Meal Plan",
+    "subtitle": "Your personalized nutrition plan for the week",
+    "noPlan": "No Meal Plan Found",
+    "completeOnboarding": "Please complete your onboarding to generate a meal plan.",
+    "goToOnboarding": "Go to Onboarding",
+    "regenerate": "Regenerate",
+    "exportPDF": "Export PDF",
+    "dailyCalories": "Daily Calories",
+    "protein": "Protein",
+    "carbs": "Carbs",
+    "fats": "Fats",
+    "day": "Day",
+    "options": "Options",
+    "nutrition": "Nutrition",
+    "cal": "cal",
+    "regenerateError": "Error regenerating plan. Please try again.",
+    "noMealsForDay": "No meals available for this day",
+    "noMeals": "No meals",
+    "viewDetails": "View details",
+    "mealDetails": "Meal Details",
+    "calories": "Calories",
+    "ingredients": "Ingredients",
+    "instructions": "Instructions",
+    "debugNoMealData": "Debug: Plan exists but no meal data found. Try regenerating the plan."
+  },
   "aiCoach": {
     "title": "AI Fitness Coach",
     "subtitle": "Powered by Gemini AI",
     "placeholder": "Ask me anything about fitness or nutrition...",
     "send": "Send",
-    "thinking": "Thinking..."
+    "thinking": "Thinking...",
+    "welcome": "Hi! I'm your AI fitness coach. I'm here to help you with nutrition, workouts, and achieving your fitness goals. What would you like to know?"
+  },
+  "profile": {
+    "title": "Personal Account",
+    "subtitle": "Manage your profile and settings",
+    "noProfile": "Profile not found",
+    "completeOnboarding": "Please complete your onboarding to create a profile.",
+    "goToOnboarding": "Go to Onboarding",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "personalInfo": "Personal Information",
+    "name": "Name",
+    "gender": "Gender",
+    "selectGender": "Select gender",
+    "male": "Male",
+    "female": "Female",
+    "other": "Other",
+    "age": "Age",
+    "years": "years",
+    "height": "Height",
+    "weight": "Weight",
+    "activityLevel": "Activity Level",
+    "sedentary": "Sedentary",
+    "light": "Light Active",
+    "moderate": "Moderate Active",
+    "active": "Active",
+    "goals": "Goals",
+    "fitnessGoal": "Fitness Goal",
+    "weightLoss": "Weight Loss",
+    "muscleGain": "Muscle Gain",
+    "endurance": "Endurance",
+    "flexibility": "Flexibility",
+    "maintenance": "Maintenance",
+    "trainingFrequency": "Training Frequency",
+    "daysPerWeek": "days per week",
+    "equipment": "Equipment",
+    "dietPreferences": "Diet Preferences",
+    "preferences": "Preferences",
+    "allergies": "Allergies",
+    "stats": "Statistics",
+    "bmi": "BMI",
+    "bmiUnderweight": "Underweight",
+    "bmiNormal": "Normal weight",
+    "bmiOverweight": "Overweight",
+    "bmiObese": "Obese",
+    "dailyCalories": "Daily Calories",
+    "quickActions": "Quick Actions",
+    "viewDashboard": "View Dashboard",
+    "viewProgress": "View Progress",
+    "updateProfile": "Update Profile"
   }
 }
 

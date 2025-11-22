@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Bot, User as UserIcon, Loader } from 'lucide-react'
 import { chatWithAI } from '@/lib/gemini'
 import { User } from '@/types/user'
+import { useLocale, useTranslations } from 'next-intl'
 import Button from './ui/Button'
 import Card from './ui/Card'
 
@@ -20,11 +21,14 @@ interface AICoachProps {
 }
 
 export default function AICoach({ user }: { user?: any }) {
+  const locale = useLocale()
+  const t = useTranslations('aiCoach')
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       role: 'assistant',
-      content: `Hi! I'm your AI fitness coach. I'm here to help you with nutrition, workouts, and achieving your fitness goals. What would you like to know?`,
+      content: t('welcome') || `Hi! I'm your AI fitness coach. I'm here to help you with nutrition, workouts, and achieving your fitness goals. What would you like to know?`,
       timestamp: new Date(),
     },
   ])
@@ -59,7 +63,7 @@ export default function AICoach({ user }: { user?: any }) {
         ? `User profile: ${user.gender || 'N/A'}, ${user.age || 'N/A'} years old, ${user.height || 'N/A'}cm, ${user.weight || 'N/A'}kg, Goal: ${user.fitnessGoal || 'N/A'}, Activity: ${user.activityLevel || 'N/A'}`
         : undefined
 
-      const response = await chatWithAI(input, context)
+      const response = await chatWithAI(input, context, locale)
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -91,14 +95,14 @@ export default function AICoach({ user }: { user?: any }) {
   }
 
   return (
-    <Card glass className="h-[600px] flex flex-col">
+    <Card glass className="min-h-[600px] flex flex-col">
       <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
         <div className="w-10 h-10 rounded-full bg-gradient-to-r from-fitness-orange to-fitness-purple flex items-center justify-center">
           <Bot className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h3 className="font-bold text-lg">AI Fitness Coach</h3>
-          <p className="text-sm text-gray-600">Powered by Gemini AI</p>
+          <h3 className="font-bold text-lg">{t('title')}</h3>
+          <p className="text-sm text-gray-600">{t('subtitle')}</p>
         </div>
       </div>
 
@@ -160,7 +164,7 @@ export default function AICoach({ user }: { user?: any }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Ask me anything about fitness or nutrition..."
+          placeholder={t('placeholder')}
           className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-fitness-orange resize-none"
           rows={2}
         />

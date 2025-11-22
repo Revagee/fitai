@@ -24,6 +24,7 @@ export default function Navbar() {
     { href: `/${locale}`, label: t('home') },
     { href: `/${locale}/dashboard`, label: t('dashboard') },
     { href: `/${locale}/progress`, label: t('progress') },
+    { href: `/${locale}/profile`, label: t('profile') },
   ]
 
   return (

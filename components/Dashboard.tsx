@@ -18,12 +18,15 @@ import { useTranslations } from 'next-intl'
 import Button from './ui/Button'
 import Card from './ui/Card'
 import Navbar from './ui/Navbar'
+import AICoach from './AICoach'
 import { useUser } from '@/context/UserContext'
 import { calculateUserMetrics } from '@/lib/utils'
+import { exportMealPlanPDF, exportWorkoutPlanPDF } from '@/lib/pdfExport'
+import { generateFitnessPlan } from '@/lib/gemini'
 
 export default function Dashboard() {
   const t = useTranslations('dashboard')
-  const { userData } = useUser()
+  const { userData, setUserData } = useUser()
   const [activeTab, setActiveTab] = useState<'meal' | 'workout' | 'coach'>('meal')
   const [loading, setLoading] = useState(false)
   const [metrics, setMetrics] = useState<any>(null)
@@ -81,11 +84,39 @@ export default function Dashboard() {
 
 
   const regeneratePlans = async () => {
-     alert("Regenerate feature requires re-running the AI prompt (Not implemented in this demo).");
+    if (!userData) return
+    
+    setLoading(true)
+    try {
+      const newPlan = await generateFitnessPlan(userData)
+      if (newPlan) {
+        const updatedData = {
+          ...userData,
+          plan: newPlan,
+          createdAt: Date.now()
+        }
+        setUserData(updatedData)
+        // Reload to show new plan
+        window.location.reload()
+      }
+    } catch (error) {
+      console.error('Error regenerating plan:', error)
+      alert(t('actions.regenerateError') || 'Error regenerating plan. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   };
   
-  const exportPDF = () => { 
-      alert('PDF export feature coming soon!'); 
+  const exportPDF = () => {
+    const locale = window.location.pathname.split('/')[1] || 'en'
+    
+    if (activeTab === 'meal' && mealPlans.length > 0) {
+      exportMealPlanPDF(userData, mealPlans, locale)
+    } else if (activeTab === 'workout' && workoutPlans.length > 0) {
+      exportWorkoutPlanPDF(userData, workoutPlans, locale)
+    } else {
+      alert(t('actions.noDataToExport') || 'No data to export')
+    }
   };
 
   // --- ОТРИСОВКА ---
@@ -96,9 +127,9 @@ export default function Dashboard() {
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <Card className="text-center">
-            <h2 className="text-2xl font-bold mb-4">Complete Your Profile</h2>
+            <h2 className="text-2xl font-bold mb-4">{t('completeProfile')}</h2>
             <p className="text-gray-600 mb-6">
-              Please complete your onboarding to view your personalized dashboard.
+              {t('completeOnboarding')}
             </p>
             <Button onClick={() => {
               const locale = window.location.pathname.split('/')[1] || 'en'
@@ -131,10 +162,10 @@ export default function Dashboard() {
           className="mb-8"
         >
           <h1 className="text-4xl font-bold mb-2">
-            Welcome back, {userData?.name || 'User'}! 👋
+            {t('welcome', { name: userData?.name || 'User' })}
           </h1>
           <p className="text-gray-600">
-            Here&apos;s your personalized fitness and nutrition plan
+            {t('personalizedPlan')}
           </p>
         </motion.div>
 
@@ -192,7 +223,7 @@ export default function Dashboard() {
               }`}
             >
               <UtensilsCrossed className="w-5 h-5 inline mr-2" />
-              Meal Plan
+              {t('tabs.mealPlan')}
             </button>
             <button
               onClick={() => setActiveTab('workout')}
@@ -203,7 +234,7 @@ export default function Dashboard() {
               }`}
             >
               <Dumbbell className="w-5 h-5 inline mr-2" />
-              Workout Plan
+              {t('tabs.workoutPlan')}
             </button>
             <button
               onClick={() => setActiveTab('coach')}
@@ -214,7 +245,7 @@ export default function Dashboard() {
               }`}
             >
               <TrendingUp className="w-5 h-5 inline mr-2" />
-              AI Coach
+              {t('tabs.aiCoach')}
             </button>
           </div>
         </div>
@@ -227,12 +258,24 @@ export default function Dashboard() {
             isLoading={loading}
           >
             <RefreshCw className="w-4 h-4 mr-2" />
-            Regenerate Plans
+            {t('actions.regeneratePlans')}
           </Button>
           <Button variant="outline" onClick={exportPDF}>
             <Download className="w-4 h-4 mr-2" />
-            Export PDF
+            {t('actions.exportPDF')}
           </Button>
+          {activeTab === 'meal' && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const locale = window.location.pathname.split('/')[1] || 'en'
+                window.location.href = `/${locale}/meal-plan`
+              }}
+            >
+              <UtensilsCrossed className="w-4 h-4 mr-2" />
+              {t('actions.viewFullMealPlan') || 'View Full Meal Plan'}
+            </Button>
+          )}
         </div>
 
         {/* Tab Content */}
@@ -247,11 +290,11 @@ export default function Dashboard() {
               {loading ? (
                 <Card className="text-center py-12">
                   <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-fitness-orange border-t-transparent"></div>
-                  <p className="mt-4 text-gray-600">Generating your meal plan...</p>
+                  <p className="mt-4 text-gray-600">{t('actions.generating', { type: t('tabs.mealPlan').toLowerCase() })}</p>
                 </Card>
               ) : mealPlans.length === 0 ? (
                 <Card className="text-center py-12">
-                  <p className="text-gray-600 mb-4">No meal plans found. Try generating one!</p>
+                  <p className="text-gray-600 mb-4">{t('mealPlan.noPlans')}</p>
                 </Card>
               ) : (
                 mealPlans.map((plan: any) => (
@@ -295,7 +338,7 @@ export default function Dashboard() {
               {loading ? (
                 <Card className="text-center py-12">
                   <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-fitness-orange border-t-transparent"></div>
-                  <p className="mt-4 text-gray-600">Generating your workout plan...</p>
+                  <p className="mt-4 text-gray-600">{t('actions.generating', { type: t('tabs.workoutPlan').toLowerCase() })}</p>
                 </Card>
               ) : workoutPlans.length === 0 ? (
                 <Card className="text-center py-12">
@@ -344,12 +387,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'coach' && (
-            <Card className="text-center py-12">
-              <h3 className="text-2xl font-bold mb-2">AI Coach</h3>
-              <p className="text-gray-600 mb-4">
-                This feature is currently simplified.
-              </p>
-            </Card>
+            <AICoach user={userData} />
           )}
         </motion.div>
       </div>

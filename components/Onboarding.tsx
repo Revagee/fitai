@@ -3,11 +3,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import { useUser } from '@/context/UserContext';
 import { generateFitnessPlan } from '@/lib/gemini';
-// Удаляем импорты Firebase, они больше не нужны
+import { useTranslations } from 'next-intl';
+import { User, Target, UtensilsCrossed, CheckCircle2, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+import Button from './ui/Button';
+import Card from './ui/Card';
+import Navbar from './ui/Navbar';
 
-// 1. ОПРЕДЕЛЯЕМ ТИП ДАННЫХ (Решает ошибки 2339)
 interface FormData {
   name: string;
   gender: string;
@@ -22,19 +26,20 @@ interface FormData {
   allergies: string;
 }
 
-const steps = [
-  { id: 'personal', title: 'Personal Details' },
-  { id: 'goals', title: 'Fitness Goals' },
-  { id: 'preferences', title: 'Preferences' },
-];
-
 export default function Onboarding() {
   const router = useRouter();
-  const { user, setUserData } = useUser(); // Берем setUserData из контекста
+  const locale = useLocale();
+  const t = useTranslations('onboarding');
+  const { user, setUserData } = useUser();
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 2. ИНИЦИАЛИЗИРУЕМ СОСТОЯНИЕ ПРАВИЛЬНО (Решает ошибки "Property does not exist")
+  const steps = [
+    { id: 'personal', title: t('steps.personalInfo'), icon: User },
+    { id: 'goals', title: t('steps.goals'), icon: Target },
+    { id: 'preferences', title: t('steps.preferences'), icon: UtensilsCrossed },
+  ];
+
   const [formData, setFormData] = useState<FormData>({
     name: '',
     gender: '',
@@ -49,7 +54,6 @@ export default function Onboarding() {
     allergies: ''
   });
 
-  // 3. ТИПИЗИРУЕМ СОБЫТИЯ (Решает ошибки 7006 "Parameter e implicitly has any type")
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -81,32 +85,22 @@ export default function Onboarding() {
     }
   };
 
-  // components/Onboarding.tsx
-
   const handleGenerate = async () => {
     setIsLoading(true);
     try {
-      console.log("Начинаем генерацию..."); // Для отладки
-      
       const generatedPlan = await generateFitnessPlan(formData);
       
-      console.log("Результат API:", generatedPlan); // Посмотрим в консоли, что пришло
-
       if (generatedPlan && user) {
         const dataToSave = {
           ...formData,
           plan: generatedPlan,
-          createdAt: new Date().toISOString()
+          createdAt: Date.now() 
         };
 
         setUserData(dataToSave);
-        
-        // ВМЕСТО router.push ИСПОЛЬЗУЕМ ЖЕСТКУЮ ПЕРЕЗАГРУЗКУ
-        // Это заставит браузер принудительно считать сохраненные данные
-        window.location.href = '/dashboard'; 
+        window.location.href = `/${locale}/dashboard`; 
       } else {
-        // ВОТ ЭТОГО НЕ ХВАТАЛО:
-        alert("Ошибка: Искусственный интеллект не вернул план. Проверь консоль браузера (F12) на наличие ошибок API.");
+        alert(t('error') || "Ошибка: Искусственный интеллект не вернул план. Проверь консоль браузера (F12) на наличие ошибок API.");
       }
     } catch (error) {
       console.error("Критическая ошибка:", error);
@@ -116,223 +110,350 @@ export default function Onboarding() {
     }
   };
 
-  // Компоненты шагов (упрощенная структура для примера, внутри твоя верстка)
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg dark:bg-gray-800">
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          {steps.map((step, index) => (
-            <div 
-              key={step.id}
-              className={`flex flex-col items-center ${index <= currentStep ? 'text-blue-600' : 'text-gray-400'}`}
-            >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${
-                index <= currentStep ? 'bg-blue-100 font-bold' : 'bg-gray-100'
-              }`}>
-                {index + 1}
-              </div>
-              <span className="text-xs">{step.title}</span>
-            </div>
-          ))}
-        </div>
-        <div className="h-2 bg-gray-200 rounded-full">
-          <div 
-            className="h-full bg-blue-600 rounded-full transition-all duration-300"
-            style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
-          />
-        </div>
-      </div>
-
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentStep}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-        >
-          {/* STEP 1: PERSONAL DETAILS */}
-          {currentStep === 0 && (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold mb-4">Tell us about yourself</h2>
-              <div className="grid grid-cols-1 gap-4">
-                <input
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Your Name"
-                  className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                />
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleInputChange}
-                  className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-                <div className="grid grid-cols-3 gap-4">
-                  <input
-                    name="age"
-                    type="number"
-                    value={formData.age}
-                    onChange={handleInputChange}
-                    placeholder="Age"
-                    className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                  />
-                  <input
-                    name="height"
-                    type="number"
-                    value={formData.height}
-                    onChange={handleInputChange}
-                    placeholder="Height (cm)"
-                    className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                  />
-                  <input
-                    name="weight"
-                    type="number"
-                    value={formData.weight}
-                    onChange={handleInputChange}
-                    placeholder="Weight (kg)"
-                    className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                  />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <Navbar />
+      <div className="max-w-4xl mx-auto py-12 px-4">
+        {/* Progress Steps */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-6">
+            {steps.map((step, index) => {
+              const Icon = step.icon;
+              const isActive = index === currentStep;
+              const isCompleted = index < currentStep;
+              
+              return (
+                <div key={step.id} className="flex-1 flex flex-col items-center">
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className={`relative w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-all duration-300 ${
+                      isActive 
+                        ? 'bg-gradient-to-r from-fitness-orange to-fitness-purple text-white shadow-lg scale-110' 
+                        : isCompleted
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-200 text-gray-400 dark:bg-gray-700'
+                    }`}
+                  >
+                    {isCompleted ? (
+                      <CheckCircle2 className="w-8 h-8" />
+                    ) : (
+                      <Icon className="w-8 h-8" />
+                    )}
+                    {isActive && (
+                      <motion.div
+                        className="absolute inset-0 rounded-full border-4 border-fitness-orange"
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                    )}
+                  </motion.div>
+                  <span className={`text-sm font-medium text-center ${
+                    isActive ? 'text-fitness-orange font-bold' : isCompleted ? 'text-green-600' : 'text-gray-400'
+                  }`}>
+                    {step.title}
+                  </span>
                 </div>
-                <div>
-                    <label className="block mb-2 text-sm font-medium">Activity Level</label>
-                    <select
+              );
+            })}
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden dark:bg-gray-700">
+            <motion.div
+              className="h-full bg-gradient-to-r from-fitness-orange to-fitness-purple rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
+            />
+          </div>
+        </div>
+
+        {/* Form Content */}
+        <Card className="min-h-[500px]">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStep}
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* STEP 1: PERSONAL DETAILS */}
+              {currentStep === 0 && (
+                <div className="space-y-6">
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold bg-gradient-to-r from-fitness-orange to-fitness-purple bg-clip-text text-transparent mb-2">
+                      {t('steps.personalInfo')}
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400">{t('personalInfo.description') || 'Расскажите нам о себе'}</p>
+                  </div>
+                  
+                  <div className="space-y-5">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        {t('personalInfo.name')}
+                      </label>
+                      <input
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        placeholder={t('personalInfo.namePlaceholder')}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fitness-orange focus:ring-2 focus:ring-fitness-orange/20 transition-all dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          {t('personalInfo.gender')}
+                        </label>
+                        <select
+                          name="gender"
+                          value={formData.gender}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fitness-orange focus:ring-2 focus:ring-fitness-orange/20 transition-all dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        >
+                          <option value="">{t('personalInfo.genderSelect')}</option>
+                          <option value="male">{t('personalInfo.male')}</option>
+                          <option value="female">{t('personalInfo.female')}</option>
+                          <option value="other">{t('personalInfo.other')}</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          {t('personalInfo.age')}
+                        </label>
+                        <input
+                          name="age"
+                          type="number"
+                          value={formData.age}
+                          onChange={handleInputChange}
+                          placeholder={t('personalInfo.agePlaceholder')}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fitness-orange focus:ring-2 focus:ring-fitness-orange/20 transition-all dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          {t('bodyMetrics.height')}
+                        </label>
+                        <input
+                          name="height"
+                          type="number"
+                          value={formData.height}
+                          onChange={handleInputChange}
+                          placeholder={t('bodyMetrics.heightPlaceholder')}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fitness-orange focus:ring-2 focus:ring-fitness-orange/20 transition-all dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          {t('bodyMetrics.weight')}
+                        </label>
+                        <input
+                          name="weight"
+                          type="number"
+                          value={formData.weight}
+                          onChange={handleInputChange}
+                          placeholder={t('bodyMetrics.weightPlaceholder')}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fitness-orange focus:ring-2 focus:ring-fitness-orange/20 transition-all dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        {t('bodyMetrics.activityLevel')}
+                      </label>
+                      <select
                         name="activityLevel"
                         value={formData.activityLevel}
                         onChange={handleInputChange}
-                        className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                    >
-                        <option value="">Select Activity Level</option>
-                        <option value="sedentary">Sedentary (Office job)</option>
-                        <option value="light">Light Active (1-2 days/week)</option>
-                        <option value="moderate">Moderate (3-5 days/week)</option>
-                        <option value="active">Active (6-7 days/week)</option>
-                    </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 2: GOALS */}
-          {currentStep === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold mb-4">Your Fitness Goals</h2>
-              <select
-                  name="fitnessGoal"
-                  value={formData.fitnessGoal}
-                  onChange={handleInputChange}
-                  className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-              >
-                  <option value="">Select Main Goal</option>
-                  <option value="weight_loss">Weight Loss</option>
-                  <option value="muscle_gain">Muscle Gain</option>
-                  <option value="endurance">Endurance</option>
-                  <option value="flexibility">Flexibility & Mobility</option>
-                  <option value="maintenance">Maintenance</option>
-              </select>
-              
-              <select
-                  name="trainingFrequency"
-                  value={formData.trainingFrequency}
-                  onChange={handleInputChange}
-                  className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-              >
-                  <option value="">How often can you train?</option>
-                  <option value="2">2 days per week</option>
-                  <option value="3">3 days per week</option>
-                  <option value="4">4 days per week</option>
-                  <option value="5">5+ days per week</option>
-              </select>
-
-              <div>
-                <label className="block mb-2 font-medium">Equipment Access</label>
-                <div className="grid grid-cols-2 gap-2">
-                    {['Gym', 'Dumbbells', 'Resistance Bands', 'Bodyweight Only', 'Pull-up Bar'].map((item) => (
-                        <label key={item} className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <input
-                                type="checkbox"
-                                value={item}
-                                checked={formData.equipmentAccess.includes(item)}
-                                onChange={(e) => handleCheckboxChange(e, 'equipmentAccess')}
-                                className="rounded text-blue-600"
-                            />
-                            <span>{item}</span>
-                        </label>
-                    ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: PREFERENCES */}
-          {currentStep === 2 && (
-             <div className="space-y-4">
-                <h2 className="text-2xl font-bold mb-4">Diet & Preferences</h2>
-                <div>
-                    <label className="block mb-2 font-medium">Dietary Preferences</label>
-                    <div className="grid grid-cols-2 gap-2">
-                        {['No Preference', 'Vegetarian', 'Vegan', 'Keto', 'Paleo', 'Gluten-free'].map((item) => (
-                            <label key={item} className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <input
-                                    type="checkbox"
-                                    value={item}
-                                    checked={formData.dietPreferences.includes(item)}
-                                    onChange={(e) => handleCheckboxChange(e, 'dietPreferences')}
-                                    className="rounded text-blue-600"
-                                />
-                                <span>{item}</span>
-                            </label>
-                        ))}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fitness-orange focus:ring-2 focus:ring-fitness-orange/20 transition-all dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      >
+                        <option value="">{t('bodyMetrics.activitySelect')}</option>
+                        <option value="sedentary">{t('bodyMetrics.sedentary')}</option>
+                        <option value="light">{t('bodyMetrics.lightlyActive')}</option>
+                        <option value="moderate">{t('bodyMetrics.moderatelyActive')}</option>
+                        <option value="active">{t('bodyMetrics.veryActive')}</option>
+                      </select>
                     </div>
+                  </div>
                 </div>
-                
-                <textarea
-                    name="allergies"
-                    value={formData.allergies}
-                    onChange={handleInputChange}
-                    placeholder="Any food allergies or injuries we should know about?"
-                    className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 h-32"
-                />
-             </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
+              )}
 
-      <div className="flex justify-between mt-8">
-        <button
-          onClick={handleBack}
-          disabled={currentStep === 0}
-          className={`px-6 py-2 rounded-lg ${
-            currentStep === 0 
-              ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-              : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-          }`}
-        >
-          Back
-        </button>
-        <button
-          onClick={handleNext}
-          disabled={isLoading}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
-        >
-          {isLoading ? (
-            <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Generating Plan...
-            </>
-          ) : (
-            currentStep === steps.length - 1 ? 'Create My Plan' : 'Next'
-          )}
-        </button>
+              {/* STEP 2: GOALS */}
+              {currentStep === 1 && (
+                <div className="space-y-6">
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold bg-gradient-to-r from-fitness-orange to-fitness-purple bg-clip-text text-transparent mb-2">
+                      {t('steps.goals')}
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400">{t('goals.description') || 'Определите свои фитнес-цели'}</p>
+                  </div>
+
+                  <div className="space-y-5">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        {t('goals.fitnessGoal')}
+                      </label>
+                      <select
+                        name="fitnessGoal"
+                        value={formData.fitnessGoal}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fitness-orange focus:ring-2 focus:ring-fitness-orange/20 transition-all dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      >
+                        <option value="">{t('goals.goalSelect')}</option>
+                        <option value="weight_loss">{t('goals.fatLoss')}</option>
+                        <option value="muscle_gain">{t('goals.muscleGain')}</option>
+                        <option value="endurance">Endurance</option>
+                        <option value="flexibility">Flexibility & Mobility</option>
+                        <option value="maintenance">Maintenance</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        {t('goals.trainingFrequency')}
+                      </label>
+                      <select
+                        name="trainingFrequency"
+                        value={formData.trainingFrequency}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fitness-orange focus:ring-2 focus:ring-fitness-orange/20 transition-all dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      >
+                        <option value="">{t('goals.trainingFrequency')}</option>
+                        <option value="2">2 {t('goals.daysPerWeek') || 'days per week'}</option>
+                        <option value="3">3 {t('goals.daysPerWeek') || 'days per week'}</option>
+                        <option value="4">4 {t('goals.daysPerWeek') || 'days per week'}</option>
+                        <option value="5">5+ {t('goals.daysPerWeek') || 'days per week'}</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                        {t('goals.equipment')}
+                      </label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {['Gym', 'Dumbbells', 'Resistance Bands', 'Bodyweight Only', 'Pull-up Bar'].map((item) => (
+                          <motion.label
+                            key={item}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className={`flex items-center space-x-3 p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                              formData.equipmentAccess.includes(item)
+                                ? 'border-fitness-orange bg-orange-50 dark:bg-orange-900/20'
+                                : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              value={item}
+                              checked={formData.equipmentAccess.includes(item)}
+                              onChange={(e) => handleCheckboxChange(e, 'equipmentAccess')}
+                              className="w-5 h-5 rounded text-fitness-orange focus:ring-fitness-orange"
+                            />
+                            <span className="text-sm font-medium">{item}</span>
+                          </motion.label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: PREFERENCES */}
+              {currentStep === 2 && (
+                <div className="space-y-6">
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold bg-gradient-to-r from-fitness-orange to-fitness-purple bg-clip-text text-transparent mb-2">
+                      {t('steps.preferences')}
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400">{t('preferences.description') || 'Ваши предпочтения в питании'}</p>
+                  </div>
+
+                  <div className="space-y-5">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                        {t('preferences.dietPreferences')}
+                      </label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {['No Preference', 'Vegetarian', 'Vegan', 'Keto', 'Paleo', 'Gluten-free'].map((item) => (
+                          <motion.label
+                            key={item}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className={`flex items-center space-x-3 p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                              formData.dietPreferences.includes(item)
+                                ? 'border-fitness-purple bg-purple-50 dark:bg-purple-900/20'
+                                : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              value={item}
+                              checked={formData.dietPreferences.includes(item)}
+                              onChange={(e) => handleCheckboxChange(e, 'dietPreferences')}
+                              className="w-5 h-5 rounded text-fitness-purple focus:ring-fitness-purple"
+                            />
+                            <span className="text-sm font-medium">{item}</span>
+                          </motion.label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        {t('preferences.allergies')}
+                      </label>
+                      <textarea
+                        name="allergies"
+                        value={formData.allergies}
+                        onChange={handleInputChange}
+                        placeholder={t('preferences.allergiesPlaceholder')}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fitness-orange focus:ring-2 focus:ring-fitness-orange/20 transition-all resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white h-32"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Navigation Buttons */}
+          <div className="flex justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <Button
+              onClick={handleBack}
+              disabled={currentStep === 0 || isLoading}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              {t('back') || 'Back'}
+            </Button>
+            <Button
+              onClick={handleNext}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {t('generating') || 'Generating...'}
+                </>
+              ) : (
+                <>
+                  {currentStep === steps.length - 1 ? (t('preferences.completeSetup') || 'Create My Plan') : (t('next') || 'Next')}
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+          </div>
+        </Card>
       </div>
     </div>
   );
