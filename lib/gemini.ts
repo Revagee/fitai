@@ -45,11 +45,11 @@ export async function generateFitnessPlan(userData: any, locale: string = "en", 
     if (!Array.isArray(plan?.workoutPlan) || !plan?.mealPlan) {
       throw new Error("The plan has an unexpected structure");
     }
-    return plan;
+    return { ...plan, lang: locale };
   } catch (error) {
     if (isNotConfigured(error)) console.warn("Gemini API key is missing, using the demo plan.");
     else console.error("ОШИБКА В GEMINI API, используется демо-план:", error);
-    return generateDemoPlan(userData, locale);
+    return { ...generateDemoPlan(userData, locale), lang: locale };
   }
 }
 
@@ -137,6 +137,33 @@ export async function explainExercise(name: string, locale: string = "en"): Prom
     return guide;
   } catch (error) {
     if (!isNotConfigured(error)) console.error("Error explaining exercise:", error);
+    return null;
+  }
+}
+
+/** The same plan with its texts in another language; null when the translation failed. */
+export async function translatePlan(plan: any, locale: string): Promise<any | null> {
+  try {
+    const { plan: translated } = await callAI<{ plan: any }>({ action: "translate", plan, locale });
+    return Array.isArray(translated?.workoutPlan) && translated?.mealPlan ? translated : null;
+  } catch (error) {
+    console.error("Error translating the plan:", error);
+    return null;
+  }
+}
+
+export interface ShoppingCategory {
+  name: string;
+  items: string[];
+}
+
+/** A shopping list for the given dishes, grouped by store section; null when it could not be built. */
+export async function getShoppingList(meals: string[], locale: string): Promise<ShoppingCategory[] | null> {
+  try {
+    const { categories } = await callAI<{ categories: ShoppingCategory[] }>({ action: "shopping", meals, locale });
+    return Array.isArray(categories) && categories.length ? categories : null;
+  } catch (error) {
+    console.error("Error building the shopping list:", error);
     return null;
   }
 }

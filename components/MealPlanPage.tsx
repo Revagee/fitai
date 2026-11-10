@@ -14,6 +14,7 @@ import {
   Apple,
   Download,
   RefreshCw,
+  ShoppingCart,
   ArrowLeft,
   Clock,
   X,
@@ -22,6 +23,8 @@ import {
 import Navbar from './ui/Navbar'
 import Card from './ui/Card'
 import Button from './ui/Button'
+import PlanTranslator from './PlanTranslator'
+import ShoppingList from './ShoppingList'
 import { exportMealPlanPDF } from '@/lib/pdfExport'
 import { chatWithAI, generateFitnessPlan } from '@/lib/gemini'
 import { applyPlanChanges, getMealDays, mealKind } from '@/lib/plan'
@@ -36,6 +39,7 @@ export default function MealPlanPage() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [selectedMeal, setSelectedMeal] = useState<any | null>(null)
   const [swapState, setSwapState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [showShopping, setShowShopping] = useState(false)
 
   // Asks the coach for a different dish in place of the open meal and applies it to that day only.
   const swapMeal = async () => {
@@ -172,7 +176,11 @@ export default function MealPlanPage() {
                 {t('subtitle')}
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => setShowShopping(true)} variant="outline" className="flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4" />
+                {t('shopping.button')}
+              </Button>
               <Button
                 onClick={handleRegenerate}
                 disabled={loading}
@@ -191,6 +199,8 @@ export default function MealPlanPage() {
               </Button>
             </div>
           </div>
+
+          <PlanTranslator />
 
           {/* Summary Card */}
           <Card className="bg-gradient-to-r from-fitness-orange to-fitness-purple text-white mb-6">
@@ -399,6 +409,8 @@ export default function MealPlanPage() {
             </Card>
           </motion.div>
         )}
+
+        {showShopping && <ShoppingList onClose={() => setShowShopping(false)} />}
 
         {/* Meal Details Modal */}
         {selectedMeal && (

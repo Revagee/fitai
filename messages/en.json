@@ -16,7 +16,9 @@
     "errorTitle": "Something went wrong",
     "errorText": "The page failed to load. Reloading usually fixes it.",
     "retry": "Try again",
-    "reload": "Reload the page"
+    "reload": "Reload the page",
+    "translatingPlan": "Translating your plan into the selected language…",
+    "translateFailed": "Couldn't translate the plan into the selected language."
   },
   "nav": {
     "home": "Home",
@@ -310,7 +312,17 @@
     "noOptionsAvailable": "No options available",
     "more": "+{count} more",
     "swap": "Swap this meal (AI)",
-    "swapError": "Couldn't swap the meal. Please try again."
+    "swapError": "Couldn't swap the meal. Please try again.",
+    "shopping": {
+      "button": "Shopping list",
+      "title": "Shopping list for the week",
+      "loading": "The AI is putting the list together…",
+      "error": "Couldn't build the list. Please try again.",
+      "retry": "Try again",
+      "refresh": "Rebuild the list",
+      "close": "Close",
+      "hint": "Written by the AI from the first option of each meal. Amounts are approximate — check them against what you already have."
+    }
   },
   "aiCoach": {
     "title": "AI Fitness Coach",

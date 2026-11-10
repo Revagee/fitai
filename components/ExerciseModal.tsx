@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, ExternalLink, Loader, RotateCcw, Sparkles, Timer, Wind, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
@@ -67,7 +67,26 @@ export default function ExerciseModal({ exercise, onClose, onAllSetsDone }: Exer
     }
   }, [onClose])
 
+  // Lets the user know the rest is over without watching the screen: a short beep and a vibration.
+  const lastRest = useRef(0)
   useEffect(() => {
+    if (lastRest.current === 1 && restLeft === 0) {
+      navigator.vibrate?.(300)
+      try {
+        const audio = new AudioContext()
+        const tone = audio.createOscillator()
+        const volume = audio.createGain()
+        tone.frequency.value = 880
+        volume.gain.value = 0.15
+        tone.connect(volume).connect(audio.destination)
+        tone.start()
+        tone.stop(audio.currentTime + 0.35)
+        tone.onended = () => audio.close()
+      } catch {
+        // No sound available: the timer on screen still shows it.
+      }
+    }
+    lastRest.current = restLeft
     if (restLeft <= 0) return
     const timer = setTimeout(() => setRestLeft((seconds) => seconds - 1), 1000)
     return () => clearTimeout(timer)

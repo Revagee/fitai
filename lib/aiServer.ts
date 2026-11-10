@@ -275,3 +275,79 @@ Answer with a single JSON object:
   }
   return guide.steps.length ? guide : null
 }
+
+/**
+ * Translates the plan's texts (exercise and meal names, notes, tips) into another language.
+ * Only the strings travel to the model and come back by position, so numbers and structure cannot change.
+ */
+export async function translatePlanWithAI(plan: any, locale: string): Promise<any> {
+  const copy = JSON.parse(JSON.stringify(plan))
+  const slots: { holder: any; key: string | number }[] = []
+  const slot = (holder: any, key: string | number) => {
+    if (holder && typeof holder[key] === 'string' && holder[key].trim()) slots.push({ holder, key })
+  }
+
+  for (const day of Array.isArray(copy?.workoutPlan) ? copy.workoutPlan : []) {
+    slot(day, 'focus')
+    for (const exercise of Array.isArray(day?.exercises) ? day.exercises : []) {
+      slot(exercise, 'name')
+      slot(exercise, 'notes')
+      // Reps are usually a number, but can carry words ("45 sec", "10 per leg").
+      if (/[^\d\s\-–.,x×]/.test(String(exercise?.reps ?? ''))) slot(exercise, 'reps')
+    }
+  }
+  const mealDays = [...(copy?.mealPlan?.weeklyMeals || []), { meals: copy?.mealPlan?.dailyMeals }]
+  for (const day of mealDays) {
+    for (const meal of Array.isArray(day?.meals) ? day.meals : []) {
+      slot(meal, 'meal')
+      slot(meal, 'name')
+      slot(meal, 'description')
+      if (Array.isArray(meal?.options)) meal.options.forEach((_: unknown, i: number) => slot(meal.options, i))
+      else slot(meal, 'options')
+    }
+  }
+  if (Array.isArray(copy?.tips)) copy.tips.forEach((_: unknown, i: number) => slot(copy.tips, i))
+
+  const texts = unique(slots.map(({ holder, key }) => String(holder[key]).slice(0, 300))).slice(0, 400)
+  if (texts.length === 0) return copy
+
+  const prompt = `Translate every string of this JSON array into ${LANGUAGE_NAMES[locale] || 'English'}. They are items of a fitness plan: exercise names, workout focus, meals, dishes and short notes. Use the usual gym and cooking terms of that language, keep numbers and units as they are, and leave strings that are already in that language unchanged.
+
+${JSON.stringify(texts)}
+
+Answer with a single JSON object: { "t": [ ...the ${texts.length} translated strings in the same order... ] }`
+
+  const parsed = parseJson(await generateWithFallback(prompt, false))
+  const translated: unknown[] = Array.isArray(parsed?.t) ? parsed.t : []
+  if (translated.length !== texts.length) throw new Error('Translation returned a different number of strings')
+
+  const byOriginal = new Map(texts.map((original, i) => [original, String(translated[i] || original)]))
+  for (const { holder, key } of slots) holder[key] = byOriginal.get(String(holder[key]).slice(0, 300)) ?? holder[key]
+  return copy
+}
+
+export interface ShoppingCategory {
+  name: string
+  items: string[]
+}
+
+/** A consolidated shopping list for the dishes of the week. */
+export async function shoppingFromAI(meals: unknown, locale: string): Promise<ShoppingCategory[] | null> {
+  const dishes = (Array.isArray(meals) ? meals : []).slice(0, 60).map((meal) => line(meal, 160)).filter(Boolean)
+  if (dishes.length === 0) return null
+
+  const prompt = `These are the dishes one person will cook during a week (repeats mean the dish is eaten several times):
+${JSON.stringify(dishes)}
+
+Write one consolidated shopping list for the whole week in ${LANGUAGE_NAMES[locale] || 'English'}: merge the same ingredient across dishes and give a sensible total amount for one person. Skip water, salt and pepper. Group the items by store section.
+
+Answer with a single JSON object:
+{ "categories": [ { "name": "section name", "items": ["ingredient — amount"] } ] }`
+
+  const parsed = parseJson(await generateWithFallback(prompt, true))
+  const categories = (Array.isArray(parsed?.categories) ? parsed.categories : [])
+    .map((category: any) => ({ name: line(category?.name, 60), items: unique(strings(category?.items, 40).map((item) => line(item, 100))) }))
+    .filter((category: ShoppingCategory) => category.name && category.items.length)
+    .slice(0, 12)
+  return categories.length ? categories : null
+}

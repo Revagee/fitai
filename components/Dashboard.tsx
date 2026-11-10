@@ -27,6 +27,7 @@ import Card from './ui/Card'
 import Navbar from './ui/Navbar'
 import AICoach from './AICoach'
 import ExerciseModal from './ExerciseModal'
+import PlanTranslator from './PlanTranslator'
 import { useUser } from '@/context/UserContext'
 import { calculateUserMetrics } from '@/lib/utils'
 import { exportMealPlanPDF, exportWorkoutPlanPDF } from '@/lib/pdfExport'
@@ -192,6 +193,8 @@ export default function Dashboard() {
             </Card>
           </div>
         )}
+
+        <PlanTranslator />
 
         {/* Training week */}
         {trainingDays.length > 0 && (
