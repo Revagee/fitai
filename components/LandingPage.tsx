@@ -3,6 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   Dumbbell,
   UtensilsCrossed,
@@ -19,23 +20,28 @@ import Card from './ui/Card'
 import Navbar from './ui/Navbar'
 
 export default function LandingPage() {
+  const t = useTranslations('landing')
+  const tCommon = useTranslations('common')
+  const locale = useLocale()
+  const onboardingHref = `/${locale}/onboarding`
+
   const features = [
     {
       icon: UtensilsCrossed,
-      title: 'Personalized Meal Plans',
-      description: 'AI-generated meal plans tailored to your goals, preferences, and dietary restrictions.',
+      title: t('features.mealPlans.title'),
+      description: t('features.mealPlans.description'),
       color: 'text-fitness-green',
     },
     {
       icon: Dumbbell,
-      title: 'Custom Workout Programs',
-      description: 'Get workout routines designed for your fitness level, goals, and available equipment.',
+      title: t('features.workoutPlans.title'),
+      description: t('features.workoutPlans.description'),
       color: 'text-fitness-orange',
     },
     {
       icon: Brain,
-      title: 'AI Coach Support',
-      description: 'Ask questions and get instant, personalized advice from our AI fitness coach.',
+      title: t('features.aiCoach.title'),
+      description: t('features.aiCoach.description'),
       color: 'text-fitness-purple',
     },
   ]
@@ -43,48 +49,48 @@ export default function LandingPage() {
   const testimonials = [
     {
       name: 'Sarah Johnson',
-      role: 'Fitness Enthusiast',
-      content: 'This app transformed my fitness journey! The meal plans are delicious and the workouts are challenging yet achievable.',
+      role: t('testimonials.sarah.role'),
+      content: t('testimonials.sarah.content'),
       rating: 5,
     },
     {
       name: 'Mike Chen',
-      role: 'Busy Professional',
-      content: 'Perfect for my hectic schedule. The AI coach helps me stay on track even when I miss workouts.',
+      role: t('testimonials.mike.role'),
+      content: t('testimonials.mike.content'),
       rating: 5,
     },
     {
       name: 'Emily Rodriguez',
-      role: 'Beginner',
-      content: 'As someone new to fitness, the personalized guidance has been invaluable. I feel stronger every week!',
+      role: t('testimonials.emily.role'),
+      content: t('testimonials.emily.content'),
       rating: 5,
     },
   ]
 
   const pricingPlans = [
     {
-      name: 'Free Trial',
+      name: t('pricing.free.name'),
       price: '$0',
-      period: '/week',
+      period: t('pricing.perWeek'),
       features: [
-        '7-day meal plan',
-        '7-day workout plan',
-        'Basic AI coach access',
-        'Progress tracking',
+        t('pricing.free.f1'),
+        t('pricing.free.f2'),
+        t('pricing.free.f3'),
+        t('pricing.free.f4'),
       ],
       highlighted: false,
     },
     {
-      name: 'Pro',
+      name: t('pricing.pro.name'),
       price: '$19',
-      period: '/month',
+      period: t('pricing.perMonth'),
       features: [
-        'Unlimited meal plans',
-        'Unlimited workout plans',
-        'Priority AI coach access',
-        'Advanced progress tracking',
-        'PDF export',
-        'Priority support',
+        t('pricing.pro.f1'),
+        t('pricing.pro.f2'),
+        t('pricing.pro.f3'),
+        t('pricing.pro.f4'),
+        t('pricing.pro.f5'),
+        t('pricing.pro.f6'),
       ],
       highlighted: true,
     },
@@ -104,21 +110,20 @@ export default function LandingPage() {
             className="text-center max-w-4xl mx-auto"
           >
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-fitness-orange via-fitness-purple to-fitness-green bg-clip-text text-transparent">
-              Your Personal AI Fitness Coach
+              {t('heroTitle')}
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 mb-8">
-              Get personalized nutrition and workout plans powered by advanced AI.
-              Transform your body, one day at a time.
+              {t('heroDescription')}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/onboarding">
+              <Link href={onboardingHref}>
                 <Button size="lg" className="w-full sm:w-auto">
-                  Get My Plan <ArrowRight className="ml-2 w-5 h-5 inline" />
+                  {t('getMyPlan')} <ArrowRight className="ml-2 w-5 h-5 inline" />
                 </Button>
               </Link>
               <Link href="#features">
                 <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                  Learn More
+                  {tCommon('learnMore')}
                 </Button>
               </Link>
             </div>
@@ -160,10 +165,10 @@ export default function LandingPage() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Everything You Need to Succeed
+              {t('featuresTitle')}
             </h2>
             <p className="text-xl text-gray-600">
-              Powerful features designed to help you reach your goals
+              {t('featuresSubtitle')}
             </p>
           </motion.div>
 
@@ -196,9 +201,9 @@ export default function LandingPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">What Our Users Say</h2>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('testimonials.title')}</h2>
             <p className="text-xl text-gray-600">
-              Join thousands of satisfied users transforming their lives
+              {t('testimonials.subtitle')}
             </p>
           </motion.div>
 
@@ -240,9 +245,9 @@ export default function LandingPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">Simple, Transparent Pricing</h2>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('pricing.title')}</h2>
             <p className="text-xl text-gray-600">
-              Start free, upgrade when you&apos;re ready
+              {t('pricing.subtitle')}
             </p>
           </motion.div>
 
@@ -261,7 +266,7 @@ export default function LandingPage() {
                 >
                   {plan.highlighted && (
                     <div className="absolute top-4 right-4 bg-fitness-orange text-white text-xs font-bold px-3 py-1 rounded-full">
-                      POPULAR
+                      {t('pricing.popular')}
                     </div>
                   )}
                   <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
@@ -277,12 +282,12 @@ export default function LandingPage() {
                       </li>
                     ))}
                   </ul>
-                  <Link href="/onboarding">
+                  <Link href={onboardingHref}>
                     <Button
                       variant={plan.highlighted ? 'primary' : 'outline'}
                       className="w-full"
                     >
-                      Get Started
+                      {tCommon('getStarted')}
                     </Button>
                   </Link>
                 </Card>
@@ -302,13 +307,13 @@ export default function LandingPage() {
           >
             <Card glass className="text-center">
               <Target className="w-16 h-16 text-fitness-orange mx-auto mb-6" />
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Transform Your Life?</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">{t('cta.title')}</h2>
               <p className="text-xl text-gray-600 mb-8">
-                Join thousands of users who have achieved their fitness goals with our AI-powered platform.
+                {t('cta.description')}
               </p>
-              <Link href="/onboarding">
+              <Link href={onboardingHref}>
                 <Button size="lg">
-                  Start Your Journey <ArrowRight className="ml-2 w-5 h-5 inline" />
+                  {t('cta.startJourney')} <ArrowRight className="ml-2 w-5 h-5 inline" />
                 </Button>
               </Link>
             </Card>
@@ -326,7 +331,7 @@ export default function LandingPage() {
             </span>
           </div>
           <p className="text-gray-600">
-            © 2024 FitAI. All rights reserved. Your personal AI fitness coach.
+            {t('footer')}
           </p>
         </div>
       </footer>

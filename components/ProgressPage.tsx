@@ -1,16 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import {
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  Target,
-  Weight,
-  Activity,
-  BarChart3,
-} from 'lucide-react'
+import { TrendingUp, TrendingDown, Target, Weight, Activity, BarChart3, Plus } from 'lucide-react'
 import {
   LineChart,
   Line,
@@ -23,74 +15,197 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
+import { useLocale, useTranslations } from 'next-intl'
+import { useRouter } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
 import { calculateUserMetrics } from '@/lib/utils'
+import { GOAL_KEYS } from '@/lib/options'
 import Card from './ui/Card'
 import Navbar from './ui/Navbar'
 import Button from './ui/Button'
 
-// Mock progress data
-const generateMockProgressData = () => {
-  const dates = []
-  const today = new Date()
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-    dates.push({
-      date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      weight: 70 - (i * 0.1) + Math.random() * 0.5,
-      calories: 2000 + Math.random() * 300 - 150,
-      workouts: Math.floor(Math.random() * 2) + 1,
-    })
-  }
-  return dates
+interface ProgressEntry {
+  date: string // YYYY-MM-DD
+  weight?: number
+  calories?: number
+  workouts?: number
 }
 
+const PERIOD_DAYS = { week: 7, month: 30, year: 365 } as const
+type Period = keyof typeof PERIOD_DAYS
+
+const toDateInput = (date: Date) => {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().split('T')[0]
+}
+
+const optionalNumber = (value: string) => {
+  const parsed = Number(value)
+  return value.trim() !== '' && parsed >= 0 ? parsed : undefined
+}
+
+const inputClass =
+  'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fitness-orange focus:border-transparent'
+
 export default function ProgressPage() {
-  const { user } = useUser()
-  const [progressData, setProgressData] = useState(generateMockProgressData())
-  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month')
-  const metrics = calculateUserMetrics(user || {} as any)
+  const { userData, setUserData, loading } = useUser()
+  const t = useTranslations('progress')
+  const tProfile = useTranslations('profile')
+  const locale = useLocale()
+  const router = useRouter()
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>('month')
+  const [form, setForm] = useState({ date: toDateInput(new Date()), weight: '', calories: '', workouts: '' })
 
-  const weeklyData = progressData.slice(-7)
-  const monthlyData = progressData
+  const entries: ProgressEntry[] = useMemo(() => userData?.progress || [], [userData])
 
-  const currentData = selectedPeriod === 'week' ? weeklyData : monthlyData
+  const currentData = useMemo(() => {
+    const from = new Date()
+    from.setDate(from.getDate() - PERIOD_DAYS[selectedPeriod] + 1)
+    const fromKey = toDateInput(from)
+    return entries
+      .filter((entry) => entry.date >= fromKey)
+      .map((entry) => ({
+        ...entry,
+        label: new Date(`${entry.date}T00:00:00`).toLocaleDateString(locale, { month: 'short', day: 'numeric' }),
+      }))
+  }, [entries, selectedPeriod, locale])
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-fitness-orange border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (!userData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+        <Navbar />
+        <div className="max-w-4xl mx-auto py-12 px-4">
+          <Card className="text-center py-12">
+            <h2 className="text-2xl font-bold mb-4">{tProfile('noProfile')}</h2>
+            <p className="text-gray-600 mb-6">{tProfile('completeOnboarding')}</p>
+            <Button onClick={() => router.push(`/${locale}/onboarding`)}>{tProfile('goToOnboarding')}</Button>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  const metrics = calculateUserMetrics(userData)
+
+  const weights = currentData.filter((d) => d.weight !== undefined).map((d) => d.weight as number)
+  const calorieDays = currentData.filter((d) => d.calories !== undefined)
+  const weightChange =
+    weights.length > 1 && weights[0] > 0 ? (((weights[weights.length - 1] - weights[0]) / weights[0]) * 100).toFixed(1) : '0'
 
   const stats = {
-    weightLoss: user && user.weight ? ((70 - 68.5) / 70 * 100).toFixed(1) : '0',
-    workoutsCompleted: currentData.reduce((sum, d) => sum + d.workouts, 0),
-    avgCalories: Math.round(currentData.reduce((sum, d) => sum + d.calories, 0) / currentData.length),
-    consistency: Math.round((currentData.filter((d) => d.workouts > 0).length / currentData.length) * 100),
+    weightChange,
+    workoutsCompleted: currentData.reduce((sum, d) => sum + (d.workouts || 0), 0),
+    avgCalories: calorieDays.length
+      ? Math.round(calorieDays.reduce((sum, d) => sum + (d.calories as number), 0) / calorieDays.length)
+      : 0,
+    consistency: Math.round((currentData.filter((d) => (d.workouts || 0) > 0).length / PERIOD_DAYS[selectedPeriod]) * 100),
   }
+
+  const saveEntry = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.date) return
+
+    const entry: ProgressEntry = {
+      date: form.date,
+      weight: optionalNumber(form.weight),
+      calories: optionalNumber(form.calories),
+      workouts: optionalNumber(form.workouts),
+    }
+    if (entry.weight === undefined && entry.calories === undefined && entry.workouts === undefined) return
+
+    const progress = [...entries.filter((item) => item.date !== entry.date), entry].sort((a, b) =>
+      a.date.localeCompare(b.date)
+    )
+    setUserData({ ...userData, progress })
+    setForm({ ...form, weight: '', calories: '', workouts: '' })
+  }
+
+  const noData = <p className="py-12 text-center text-gray-500">{t('noData')}</p>
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl font-bold mb-2">Progress Tracking</h1>
-          <p className="text-gray-600">
-            Monitor your fitness journey and see your improvements
-          </p>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">{t('title')}</h1>
+          <p className="text-gray-600">{t('description')}</p>
         </motion.div>
+
+        {/* Daily log */}
+        <Card className="mb-6">
+          <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Plus className="w-5 h-5 text-fitness-orange" />
+            {t('log.title')}
+          </h3>
+          <form onSubmit={saveEntry} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+            <label className="block text-sm font-medium text-gray-700">
+              <span className="block mb-2">{t('log.date')}</span>
+              <input
+                type="date"
+                required
+                max={toDateInput(new Date())}
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              <span className="block mb-2">{t('log.weight')}</span>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={form.weight}
+                onChange={(e) => setForm({ ...form, weight: e.target.value })}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              <span className="block mb-2">{t('log.calories')}</span>
+              <input
+                type="number"
+                min="0"
+                value={form.calories}
+                onChange={(e) => setForm({ ...form, calories: e.target.value })}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              <span className="block mb-2">{t('log.workouts')}</span>
+              <input
+                type="number"
+                min="0"
+                value={form.workouts}
+                onChange={(e) => setForm({ ...form, workouts: e.target.value })}
+                className={inputClass}
+              />
+            </label>
+            <Button type="submit" size="sm" className="py-3">
+              {t('log.save')}
+            </Button>
+          </form>
+          <p className="mt-3 text-xs text-gray-500">{t('log.hint')}</p>
+        </Card>
 
         {/* Period Selector */}
         <div className="flex gap-2 mb-6">
-          {(['week', 'month', 'year'] as const).map((period) => (
+          {(Object.keys(PERIOD_DAYS) as Period[]).map((period) => (
             <Button
               key={period}
               variant={selectedPeriod === period ? 'primary' : 'outline'}
               size="sm"
               onClick={() => setSelectedPeriod(period)}
             >
-              {period.charAt(0).toUpperCase() + period.slice(1)}
+              {t(`periods.${period}`)}
             </Button>
           ))}
         </div>
@@ -100,8 +215,8 @@ export default function ProgressPage() {
           <Card glass>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Weight Loss</p>
-                <p className="text-2xl font-bold">{stats.weightLoss}%</p>
+                <p className="text-sm text-gray-600 mb-1">{t('stats.weightChange')}</p>
+                <p className="text-2xl font-bold">{stats.weightChange}%</p>
               </div>
               <TrendingDown className="w-8 h-8 text-fitness-green" />
             </div>
@@ -109,7 +224,7 @@ export default function ProgressPage() {
           <Card glass>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Workouts</p>
+                <p className="text-sm text-gray-600 mb-1">{t('stats.workouts')}</p>
                 <p className="text-2xl font-bold">{stats.workoutsCompleted}</p>
               </div>
               <Activity className="w-8 h-8 text-fitness-orange" />
@@ -118,7 +233,7 @@ export default function ProgressPage() {
           <Card glass>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Avg Calories</p>
+                <p className="text-sm text-gray-600 mb-1">{t('stats.avgCalories')}</p>
                 <p className="text-2xl font-bold">{stats.avgCalories}</p>
               </div>
               <Target className="w-8 h-8 text-fitness-purple" />
@@ -127,7 +242,7 @@ export default function ProgressPage() {
           <Card glass>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Consistency</p>
+                <p className="text-sm text-gray-600 mb-1">{t('stats.consistency')}</p>
                 <p className="text-2xl font-bold">{stats.consistency}%</p>
               </div>
               <TrendingUp className="w-8 h-8 text-fitness-green" />
@@ -137,89 +252,86 @@ export default function ProgressPage() {
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Weight Chart */}
           <Card>
             <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
               <Weight className="w-5 h-5 text-fitness-orange" />
-              Weight Progress
+              {t('charts.weightProgress')}
             </h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={currentData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="weight"
-                  stroke="#ff6b35"
-                  strokeWidth={2}
-                  name="Weight (kg)"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {weights.length === 0 ? noData : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={currentData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis domain={['auto', 'auto']} />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="weight" connectNulls stroke="#ff6b35" strokeWidth={2} name={t('charts.weight')} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </Card>
 
-          {/* Calories Chart */}
           <Card>
             <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
               <Target className="w-5 h-5 text-fitness-green" />
-              Daily Calories
+              {t('charts.dailyCalories')}
             </h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={currentData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="calories" fill="#10b981" name="Calories" />
-              </BarChart>
-            </ResponsiveContainer>
+            {calorieDays.length === 0 ? noData : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={currentData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="calories" fill="#10b981" name={t('charts.calories')} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </Card>
         </div>
 
-        {/* Workout Frequency */}
         <Card>
           <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
             <Activity className="w-5 h-5 text-fitness-purple" />
-            Workout Frequency
+            {t('charts.workoutFrequency')}
           </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={currentData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="workouts" fill="#9b59b6" name="Workouts per Day" />
-            </BarChart>
-          </ResponsiveContainer>
+          {stats.workoutsCompleted === 0 ? noData : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={currentData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="workouts" fill="#9b59b6" name={t('charts.workoutsPerDay')} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </Card>
 
         {/* Goals Summary */}
-        {metrics && user && (
+        {metrics && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <Card glass>
               <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                 <Target className="w-5 h-5 text-fitness-orange" />
-                Your Goals
+                {t('goals.yourGoals')}
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Fitness Goal:</span>
-                  <span className="font-semibold capitalize">
-                    {user.fitnessGoal?.replace('_', ' ') || 'Not set'}
+                  <span className="text-gray-600">{t('goals.fitnessGoal')}</span>
+                  <span className="font-semibold">
+                    {GOAL_KEYS[userData.fitnessGoal] ? tProfile(GOAL_KEYS[userData.fitnessGoal]) : t('notSet')}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Target Calories:</span>
-                  <span className="font-semibold">{metrics.calories} kcal/day</span>
+                  <span className="text-gray-600">{t('goals.targetCalories')}</span>
+                  <span className="font-semibold">{metrics.calories} {t('kcalPerDay')}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Training Frequency:</span>
-                  <span className="font-semibold">{user.trainingFrequency || 0} days/week</span>
+                  <span className="text-gray-600">{t('goals.trainingFrequency')}</span>
+                  <span className="font-semibold">{userData.trainingFrequency || 0} {t('goals.daysPerWeek')}</span>
                 </div>
               </div>
             </Card>
@@ -227,24 +339,24 @@ export default function ProgressPage() {
             <Card glass>
               <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-fitness-green" />
-                Current Metrics
+                {t('metrics.currentMetrics')}
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">BMI:</span>
+                  <span className="text-gray-600">{t('metrics.bmi')}</span>
                   <span className="font-semibold">{metrics.bmi}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Protein:</span>
-                  <span className="font-semibold">{metrics.protein}g/day</span>
+                  <span className="text-gray-600">{t('metrics.protein')}</span>
+                  <span className="font-semibold">{metrics.protein} {t('metrics.perDay')}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Carbs:</span>
-                  <span className="font-semibold">{metrics.carbs}g/day</span>
+                  <span className="text-gray-600">{t('metrics.carbs')}</span>
+                  <span className="font-semibold">{metrics.carbs} {t('metrics.perDay')}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Fats:</span>
-                  <span className="font-semibold">{metrics.fats}g/day</span>
+                  <span className="text-gray-600">{t('metrics.fats')}</span>
+                  <span className="font-semibold">{metrics.fats} {t('metrics.perDay')}</span>
                 </div>
               </div>
             </Card>
@@ -254,4 +366,3 @@ export default function ProgressPage() {
     </div>
   )
 }
-

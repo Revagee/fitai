@@ -7,6 +7,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** Local calendar date as YYYY-MM-DD (the key used by the progress log). */
+export function toDateKey(date: Date = new Date()): string {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().split('T')[0]
+}
+
 export function calculateBMI(height: number, weight: number): number {
   const heightInMeters = height / 100
   return Number((weight / (heightInMeters * heightInMeters)).toFixed(1))
@@ -28,8 +34,11 @@ export function calculateBMR(user: User): number {
 export function calculateTDEE(bmr: number, activityLevel: string): number {
   const multipliers = {
     sedentary: 1.2,
+    light: 1.375,
     lightly_active: 1.375,
+    moderate: 1.55,
     moderately_active: 1.55,
+    active: 1.725,
     very_active: 1.725,
   }
 
@@ -40,7 +49,7 @@ export function calculateTDEE(bmr: number, activityLevel: string): number {
 export function calculateCalorieGoal(tdee: number, fitnessGoal: string): number {
   if (fitnessGoal === 'muscle_gain') {
     return tdee + 300 // Surplus for muscle gain
-  } else if (fitnessGoal === 'fat_loss') {
+  } else if (fitnessGoal === 'fat_loss' || fitnessGoal === 'weight_loss') {
     return tdee - 500 // Deficit for fat loss
   }
   return tdee // Maintenance
@@ -53,7 +62,7 @@ export function calculateMacros(calories: number, fitnessGoal: string) {
     proteinRatio = 0.3
     carbRatio = 0.45
     fatRatio = 0.25
-  } else if (fitnessGoal === 'fat_loss') {
+  } else if (fitnessGoal === 'fat_loss' || fitnessGoal === 'weight_loss') {
     proteinRatio = 0.35
     carbRatio = 0.35
     fatRatio = 0.30

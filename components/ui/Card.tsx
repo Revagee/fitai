@@ -9,11 +9,13 @@ interface CardProps {
   className?: string
   hover?: boolean
   glass?: boolean
+  onClick?: () => void
 }
 
-export default function Card({ children, className, hover = false, glass = false }: CardProps) {
+export default function Card({ children, className, hover = false, glass = false, onClick }: CardProps) {
   return (
     <motion.div
+      onClick={onClick}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={hover ? { scale: 1.02 } : {}}

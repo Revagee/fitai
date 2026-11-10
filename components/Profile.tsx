@@ -9,19 +9,30 @@ import { User, Edit2, Save, X, Calendar, Target, Activity, UtensilsCrossed, Dumb
 import Card from './ui/Card'
 import Button from './ui/Button'
 import Navbar from './ui/Navbar'
+import { ACTIVITY_KEYS, DIET_OPTIONS, EQUIPMENT_OPTIONS, GOAL_KEYS } from '@/lib/options'
 
 export default function Profile() {
-  const { userData, setUserData } = useUser()
+  const { userData, setUserData, loading } = useUser()
   const t = useTranslations('profile')
+  const tOnboarding = useTranslations('onboarding')
   const locale = useLocale()
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
-  const [editedData, setEditedData] = useState(userData || {})
+  const [editedData, setEditedData] = useState<any>({})
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-fitness-orange border-t-transparent" />
+      </div>
+    )
+  }
 
   if (!userData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
-        <div className="max-w-4xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <Navbar />
+        <div className="max-w-4xl mx-auto py-12 px-4">
           <Card className="text-center py-12">
             <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-4">{t('noProfile')}</h2>
@@ -35,14 +46,27 @@ export default function Profile() {
     )
   }
 
+  const startEditing = () => {
+    setEditedData(userData)
+    setIsEditing(true)
+  }
+
+  const canSave =
+    Boolean(editedData.name?.trim()) && Number(editedData.age) > 0 && Number(editedData.height) > 0 && Number(editedData.weight) > 0
+
   const handleSave = () => {
+    if (!canSave) return
     setUserData(editedData)
     setIsEditing(false)
   }
 
   const handleCancel = () => {
-    setEditedData(userData)
     setIsEditing(false)
+  }
+
+  const optionLabel = (options: { value: string; key: string }[], value: string) => {
+    const option = options.find((item) => item.value === value)
+    return option ? tOnboarding(option.key) : value
   }
 
   const calculateBMI = () => {
@@ -78,7 +102,7 @@ export default function Profile() {
               <p className="text-gray-600 dark:text-gray-400">{t('subtitle')}</p>
             </div>
             {!isEditing ? (
-              <Button onClick={() => setIsEditing(true)} className="flex items-center gap-2">
+              <Button onClick={startEditing} className="flex items-center gap-2">
                 <Edit2 className="w-4 h-4" />
                 {t('edit')}
               </Button>
@@ -88,7 +112,7 @@ export default function Profile() {
                   <X className="w-4 h-4" />
                   {t('cancel')}
                 </Button>
-                <Button onClick={handleSave} className="flex items-center gap-2">
+                <Button onClick={handleSave} disabled={!canSave} className="flex items-center gap-2">
                   <Save className="w-4 h-4" />
                   {t('save')}
                 </Button>
@@ -206,7 +230,7 @@ export default function Profile() {
                       </select>
                     ) : (
                       <p className="text-gray-900 dark:text-gray-100 font-medium">
-                        {userData.activityLevel ? t(userData.activityLevel) : '-'}
+                        {ACTIVITY_KEYS[userData.activityLevel] ? t(ACTIVITY_KEYS[userData.activityLevel]) : '-'}
                       </p>
                     )}
                   </div>
@@ -239,7 +263,7 @@ export default function Profile() {
                     </select>
                   ) : (
                     <p className="text-gray-900 dark:text-gray-100 font-medium">
-                      {userData.fitnessGoal ? t(userData.fitnessGoal) : '-'}
+                      {GOAL_KEYS[userData.fitnessGoal] ? t(GOAL_KEYS[userData.fitnessGoal]) : '-'}
                     </p>
                   )}
                 </div>
@@ -261,7 +285,7 @@ export default function Profile() {
                         key={index}
                         className="px-3 py-1 bg-gradient-to-r from-fitness-orange to-fitness-purple text-white rounded-full text-sm"
                       >
-                        {item}
+                        {optionLabel(EQUIPMENT_OPTIONS, item)}
                       </span>
                     ))}
                   </div>
@@ -286,7 +310,7 @@ export default function Profile() {
                         key={index}
                         className="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm"
                       >
-                        {item}
+                        {optionLabel(DIET_OPTIONS, item)}
                       </span>
                     ))}
                   </div>

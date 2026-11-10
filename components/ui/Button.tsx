@@ -1,10 +1,11 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
+import { motion, type HTMLMotionProps } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
+  children?: React.ReactNode
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
   isLoading?: boolean
@@ -19,7 +20,8 @@ export default function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const baseStyles = 'font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2'
+  // inline-flex keeps an icon on the same line as the label (Tailwind makes bare SVGs block-level).
+  const baseStyles = 'inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2'
   
   const variants = {
     primary: 'bg-gradient-to-r from-fitness-orange to-fitness-purple text-white hover:opacity-90 focus:ring-fitness-orange',
@@ -48,14 +50,10 @@ export default function Button({
       disabled={disabled || isLoading}
       {...props}
     >
-      {isLoading ? (
-        <span className="flex items-center gap-2">
-          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          Loading...
-        </span>
-      ) : (
-        children
+      {isLoading && (
+        <span className="w-4 h-4 mr-2 flex-shrink-0 border-2 border-current border-t-transparent rounded-full animate-spin" />
       )}
+      {children}
     </motion.button>
   )
 }

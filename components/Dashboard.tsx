@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Calendar,
@@ -13,111 +13,99 @@ import {
   Apple,
   Coffee,
   Sunset,
+  Bot,
+  PlayCircle,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
+import { useRouter } from 'next/navigation'
 import Button from './ui/Button'
 import Card from './ui/Card'
 import Navbar from './ui/Navbar'
 import AICoach from './AICoach'
+import ExerciseModal from './ExerciseModal'
 import { useUser } from '@/context/UserContext'
-import { calculateUserMetrics } from '@/lib/utils'
+import { calculateUserMetrics, toDateKey } from '@/lib/utils'
 import { exportMealPlanPDF, exportWorkoutPlanPDF } from '@/lib/pdfExport'
 import { generateFitnessPlan } from '@/lib/gemini'
+import { getMealDays, getWorkoutDays, mealKind, type ExerciseView } from '@/lib/plan'
+
+type Tab = 'meal' | 'workout' | 'coach'
 
 export default function Dashboard() {
   const t = useTranslations('dashboard')
+  const locale = useLocale()
+  const router = useRouter()
   const { userData, setUserData } = useUser()
-  const [activeTab, setActiveTab] = useState<'meal' | 'workout' | 'coach'>('meal')
+  const [activeTab, setActiveTab] = useState<Tab>('meal')
   const [loading, setLoading] = useState(false)
-  const [metrics, setMetrics] = useState<any>(null)
+  const [openExercise, setOpenExercise] = useState<ExerciseView | null>(null)
+  const closeExercise = useCallback(() => setOpenExercise(null), [])
 
-  // Инициализация метрик и данных при загрузке
-  useEffect(() => {
-    if (userData) {
-      setMetrics(calculateUserMetrics(userData));
-    }
-  }, [userData]);
+  const metrics = useMemo(() => (userData ? calculateUserMetrics(userData) : null), [userData])
+  const mealPlans = useMemo(() => getMealDays(userData?.plan?.mealPlan), [userData?.plan?.mealPlan])
+  const workoutPlans = useMemo(() => getWorkoutDays(userData?.plan?.workoutPlan), [userData?.plan?.workoutPlan])
 
-  // --- АДАПТЕР ДАННЫХ (Превращаем ответ AI в формат Дашборда) ---
-  
-  // 1. План питания
-  const mealPlans: any[] = userData?.plan?.mealPlan ? [{
-    id: 'mp-1',
-    day: 1,
-    date: new Date().toISOString(),
-    totalCalories: userData.plan.mealPlan.calories || 0,
-    totalProtein: userData.plan.mealPlan.macros?.protein || '0g',
-    totalCarbs: userData.plan.mealPlan.macros?.carbs || '0g',
-    totalFats: userData.plan.mealPlan.macros?.fats || '0g',
-    meals: Array.isArray(userData.plan.mealPlan.dailyMeals) 
-      ? userData.plan.mealPlan.dailyMeals.map((meal: any, index: number) => ({
-          id: `meal-${index}`,
-          name: meal.meal || `Meal ${index + 1}`,
-          description: Array.isArray(meal.options) ? meal.options.join(', ') : meal.options,
-          calories: 0, // AI часто не дает калории на каждое блюдо отдельно
-          protein: 0,
-          carbs: 0,
-          fats: 0,
-          ingredients: []
-        }))
-      : []
-  }] : [];
-
-  // 2. План тренировок
-  const workoutPlans: any[] = Array.isArray(userData?.plan?.workoutPlan) 
-    ? userData.plan.workoutPlan.map((day: any, index: number) => ({
-        id: `wp-${index}`,
-        day: index + 1,
-        date: new Date().toISOString(),
-        estimatedDuration: 45, // Примерное время
-        exercises: Array.isArray(day.exercises) ? day.exercises.map((ex: any, i: number) => ({
-           id: `ex-${index}-${i}`,
-           name: ex.name,
-           sets: ex.sets,
-           reps: ex.reps,
-           restSeconds: 60,
-           notes: ex.notes || '',
-           muscleGroups: []
-        })) : []
-      })) 
-    : [];
-
+  const today = toDateKey()
+  const doneToday: number[] = userData?.workoutLog?.[today] || []
 
   const regeneratePlans = async () => {
     if (!userData) return
-    
+
     setLoading(true)
     try {
-      const newPlan = await generateFitnessPlan(userData)
-      if (newPlan) {
-        const updatedData = {
-          ...userData,
-          plan: newPlan,
-          createdAt: Date.now()
-        }
-        setUserData(updatedData)
-        // Reload to show new plan
-        window.location.reload()
-      }
+      const newPlan = await generateFitnessPlan(userData, locale)
+      // Generation takes minutes: merge into the data as it is now, not as it was when the request started.
+      setUserData((current: any) => ({ ...current, plan: newPlan, createdAt: Date.now() }))
     } catch (error) {
       console.error('Error regenerating plan:', error)
-      alert(t('actions.regenerateError') || 'Error regenerating plan. Please try again.')
+      alert(t('actions.regenerateError'))
     } finally {
       setLoading(false)
     }
-  };
-  
-  const exportPDF = () => {
-    const locale = window.location.pathname.split('/')[1] || 'en'
-    
-    if (activeTab === 'meal' && mealPlans.length > 0) {
-      exportMealPlanPDF(userData, mealPlans, locale)
-    } else if (activeTab === 'workout' && workoutPlans.length > 0) {
-      exportWorkoutPlanPDF(userData, workoutPlans, locale)
-    } else {
-      alert(t('actions.noDataToExport') || 'No data to export')
+  }
+
+  const exportPDF = async () => {
+    try {
+      if (activeTab === 'workout' && workoutPlans.length > 0) {
+        await exportWorkoutPlanPDF(userData, workoutPlans, locale)
+      } else if (activeTab !== 'workout' && mealPlans.length > 0) {
+        await exportMealPlanPDF(userData, mealPlans, locale)
+      } else {
+        alert(t('actions.noDataToExport'))
+      }
+    } catch (error) {
+      console.error('Error exporting PDF:', error)
+      alert(t('actions.noDataToExport'))
     }
-  };
+  }
+
+  // Marks a workout as done today and keeps the progress log (workouts per day) in step with it.
+  const toggleWorkoutDone = (day: number) => {
+    setUserData((current: any) => {
+      const done: number[] = current?.workoutLog?.[today] || []
+      const wasDone = done.includes(day)
+      const progress: any[] = [...(current?.progress || [])]
+      const index = progress.findIndex((entry) => entry.date === today)
+      const workouts = Math.max(0, (progress[index]?.workouts || 0) + (wasDone ? -1 : 1))
+      if (index >= 0) progress[index] = { ...progress[index], workouts }
+      else if (!wasDone) progress.push({ date: today, workouts })
+      progress.sort((a, b) => String(a.date).localeCompare(String(b.date)))
+      return {
+        ...current,
+        progress,
+        workoutLog: { [today]: wasDone ? done.filter((item) => item !== day) : [...done, day] },
+      }
+    })
+  }
+
+  const tabClass = (tab: Tab) =>
+    `px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 whitespace-nowrap ${
+      activeTab === tab
+        ? 'border-fitness-orange text-fitness-orange'
+        : 'border-transparent text-gray-600 hover:text-fitness-orange'
+    }`
 
   // --- ОТРИСОВКА ---
 
@@ -131,10 +119,7 @@ export default function Dashboard() {
             <p className="text-gray-600 mb-6">
               {t('completeOnboarding')}
             </p>
-            <Button onClick={() => {
-              const locale = window.location.pathname.split('/')[1] || 'en'
-              window.location.href = `/${locale}/onboarding`
-            }}>
+            <Button onClick={() => router.push(`/${locale}/onboarding`)}>
               {t('completeProfile')}
             </Button>
           </Card>
@@ -167,6 +152,11 @@ export default function Dashboard() {
           <p className="text-gray-600">
             {t('personalizedPlan')}
           </p>
+          {userData?.plan?.demo && (
+            <p className="mt-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+              {t('demoNotice')}
+            </p>
+          )}
         </motion.div>
 
         {/* Metrics Summary */}
@@ -175,7 +165,7 @@ export default function Dashboard() {
             <Card glass>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">BMI</p>
+                  <p className="text-sm text-gray-600 mb-1">{t('metrics.bmi')}</p>
                   <p className="text-2xl font-bold">{metrics.bmi}</p>
                 </div>
                 <TrendingUp className="w-8 h-8 text-fitness-orange" />
@@ -184,7 +174,7 @@ export default function Dashboard() {
             <Card glass>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Daily Calories</p>
+                  <p className="text-sm text-gray-600 mb-1">{t('metrics.dailyCalories')}</p>
                   <p className="text-2xl font-bold">{metrics.calories}</p>
                 </div>
                 <UtensilsCrossed className="w-8 h-8 text-fitness-green" />
@@ -193,7 +183,7 @@ export default function Dashboard() {
             <Card glass>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Protein (g)</p>
+                  <p className="text-sm text-gray-600 mb-1">{t('metrics.protein')}</p>
                   <p className="text-2xl font-bold">{metrics.protein}</p>
                 </div>
                 <Dumbbell className="w-8 h-8 text-fitness-purple" />
@@ -202,7 +192,7 @@ export default function Dashboard() {
             <Card glass>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Carbs (g)</p>
+                  <p className="text-sm text-gray-600 mb-1">{t('metrics.carbs')}</p>
                   <p className="text-2xl font-bold">{metrics.carbs}</p>
                 </div>
                 <Apple className="w-8 h-8 text-fitness-green" />
@@ -213,45 +203,24 @@ export default function Dashboard() {
 
         {/* Tabs */}
         <div className="mb-6">
-          <div className="flex gap-4 border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab('meal')}
-              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === 'meal'
-                  ? 'border-fitness-orange text-fitness-orange'
-                  : 'border-transparent text-gray-600 hover:text-fitness-orange'
-              }`}
-            >
+          <div className="flex gap-2 sm:gap-4 border-b border-gray-200 overflow-x-auto">
+            <button onClick={() => setActiveTab('meal')} className={tabClass('meal')}>
               <UtensilsCrossed className="w-5 h-5 inline mr-2" />
               {t('tabs.mealPlan')}
             </button>
-            <button
-              onClick={() => setActiveTab('workout')}
-              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === 'workout'
-                  ? 'border-fitness-orange text-fitness-orange'
-                  : 'border-transparent text-gray-600 hover:text-fitness-orange'
-              }`}
-            >
+            <button onClick={() => setActiveTab('workout')} className={tabClass('workout')}>
               <Dumbbell className="w-5 h-5 inline mr-2" />
               {t('tabs.workoutPlan')}
             </button>
-            <button
-              onClick={() => setActiveTab('coach')}
-              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === 'coach'
-                  ? 'border-fitness-orange text-fitness-orange'
-                  : 'border-transparent text-gray-600 hover:text-fitness-orange'
-              }`}
-            >
-              <TrendingUp className="w-5 h-5 inline mr-2" />
+            <button onClick={() => setActiveTab('coach')} className={tabClass('coach')}>
+              <Bot className="w-5 h-5 inline mr-2" />
               {t('tabs.aiCoach')}
             </button>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-4 mb-6">
+        <div className="flex flex-wrap gap-4 mb-6">
           <Button
             variant="outline"
             onClick={regeneratePlans}
@@ -267,18 +236,16 @@ export default function Dashboard() {
           {activeTab === 'meal' && (
             <Button
               variant="outline"
-              onClick={() => {
-                const locale = window.location.pathname.split('/')[1] || 'en'
-                window.location.href = `/${locale}/meal-plan`
-              }}
+              onClick={() => router.push(`/${locale}/meal-plan`)}
             >
               <UtensilsCrossed className="w-4 h-4 mr-2" />
-              {t('actions.viewFullMealPlan') || 'View Full Meal Plan'}
+              {t('actions.viewFullMealPlan')}
             </Button>
           )}
         </div>
 
         {/* Tab Content */}
+        {activeTab !== 'coach' && (
         <motion.div
           key={activeTab}
           initial={{ opacity: 0, y: 20 }}
@@ -297,29 +264,34 @@ export default function Dashboard() {
                   <p className="text-gray-600 mb-4">{t('mealPlan.noPlans')}</p>
                 </Card>
               ) : (
-                mealPlans.map((plan: any) => (
+                mealPlans.map((plan) => (
                   <Card key={plan.id} hover>
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xl font-bold flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-fitness-orange" />
-                        Day {plan.day}
+                        {t('day', { day: plan.day })}
                       </h3>
                       <div className="flex gap-4 text-sm">
-                        <span className="font-semibold">{plan.totalCalories} cal</span>
+                        <span className="font-semibold">{t('mealPlan.calories', { calories: plan.totalCalories })}</span>
                         <span className="text-gray-600">
                            P: {plan.totalProtein} | C: {plan.totalCarbs} | F: {plan.totalFats}
                         </span>
                       </div>
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
-                      {plan.meals.map((meal: any, index: number) => (
+                      {plan.meals.map((meal) => (
                         <div
-                          key={meal.id || index}
+                          key={meal.id}
                           className="p-4 rounded-lg bg-gray-50 border border-gray-200"
                         >
                           <div className="flex items-center gap-2 mb-2">
-                            {mealIcons[meal.name.toLowerCase().includes('breakfast') ? 'breakfast' : meal.name.toLowerCase().includes('lunch') ? 'lunch' : meal.name.toLowerCase().includes('dinner') ? 'dinner' : 'snack'] || <Coffee className="w-5 h-5" />}
-                            <h4 className="font-semibold">{meal.name}</h4>
+                            {mealIcons[mealKind(meal.name)]}
+                            <h4 className="font-semibold flex-1">{meal.name}</h4>
+                            {meal.calories > 0 && (
+                              <span className="text-xs font-medium text-gray-500">
+                                {t('mealPlan.calories', { calories: meal.calories })}
+                              </span>
+                            )}
                           </div>
                           <p className="text-sm text-gray-600 mb-2">
                             {meal.description}
@@ -342,55 +314,95 @@ export default function Dashboard() {
                 </Card>
               ) : workoutPlans.length === 0 ? (
                 <Card className="text-center py-12">
-                  <p className="text-gray-600 mb-4">No workout plans found.</p>
+                  <p className="text-gray-600 mb-4">{t('workoutPlan.noPlans')}</p>
                 </Card>
               ) : (
-                workoutPlans.map((plan: any) => (
-                  <Card key={plan.id} hover>
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-bold flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-fitness-purple" />
-                        Day {plan.day}
-                      </h3>
-                      <div className="text-sm text-gray-600">
-                        <Dumbbell className="w-4 h-4 inline mr-1" />
-                        {plan.estimatedDuration} min
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      {plan.exercises.map((exercise: any, index: number) => (
-                        <div
-                          key={exercise.id || index}
-                          className="p-4 rounded-lg bg-gray-50 border border-gray-200"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold">{exercise.name}</h4>
-                            <span className="text-sm text-gray-600">
-                              {exercise.sets} sets × {exercise.reps} reps
-                            </span>
-                          </div>
-                          <div className="flex gap-4 text-xs text-gray-600">
-                            <span>Rest: {exercise.restSeconds}s</span>
-                          </div>
-                          {exercise.notes && (
-                            <p className="text-xs text-gray-600 mt-2 italic">
-                              {exercise.notes}
-                            </p>
+                <>
+                  <p className="flex items-center gap-2 text-sm text-gray-600">
+                    <PlayCircle className="w-4 h-4 text-fitness-orange" />
+                    {t('workoutPlan.tapHint')}
+                  </p>
+                  {workoutPlans.map((plan) => {
+                    const done = doneToday.includes(plan.day)
+                    return (
+                      <Card key={plan.id} className={done ? 'border-green-300' : undefined}>
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                          <h3 className="text-xl font-bold flex items-center gap-2">
+                            <Calendar className="w-5 h-5 text-fitness-purple" />
+                            {t('day', { day: plan.day })}
+                            {plan.focus && <span className="text-base font-medium text-gray-600">· {plan.focus}</span>}
+                          </h3>
+                          {plan.exercises.length > 0 && (
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm text-gray-600">
+                                <Dumbbell className="w-4 h-4 inline mr-1" />
+                                {t('workoutPlan.duration', { duration: plan.estimatedDuration })}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => toggleWorkoutDone(plan.day)}
+                                aria-pressed={done}
+                                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                                  done
+                                    ? 'border-green-300 bg-green-50 text-green-700'
+                                    : 'border-gray-300 text-gray-600 hover:border-fitness-green hover:text-fitness-green'
+                                }`}
+                              >
+                                {done ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
+                                {done ? t('workoutPlan.done') : t('workoutPlan.markDone')}
+                              </button>
+                            </div>
                           )}
                         </div>
-                      ))}
-                    </div>
-                  </Card>
-                ))
+                        {plan.exercises.length === 0 && (
+                          <p className="text-sm text-gray-600">{t('restDay')}</p>
+                        )}
+                        <div className="space-y-3">
+                          {plan.exercises.map((exercise) => (
+                            <button
+                              key={exercise.id}
+                              type="button"
+                              onClick={() => setOpenExercise(exercise)}
+                              className="group block w-full text-left p-4 rounded-lg bg-gray-50 border border-gray-200 hover:border-fitness-orange hover:bg-orange-50/50 transition-colors focus:outline-none focus:ring-2 focus:ring-fitness-orange"
+                            >
+                              <div className="flex items-center justify-between gap-3 mb-2">
+                                <h4 className="font-semibold">{exercise.name}</h4>
+                                <span className="text-sm text-gray-600 text-right">
+                                  {t('workoutPlan.setsReps', { sets: exercise.sets, reps: exercise.reps })}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-4 text-xs text-gray-600">
+                                <span>{t('workoutPlan.rest', { seconds: exercise.restSeconds })}</span>
+                                <span className="inline-flex items-center gap-1 font-medium text-fitness-orange">
+                                  <PlayCircle className="w-4 h-4" />
+                                  {t('workoutPlan.howTo')}
+                                </span>
+                              </div>
+                              {exercise.notes && (
+                                <p className="text-xs text-gray-600 mt-2 italic">
+                                  {exercise.notes}
+                                </p>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </Card>
+                    )
+                  })}
+                </>
               )}
             </div>
           )}
-
-          {activeTab === 'coach' && (
-            <AICoach user={userData} />
-          )}
         </motion.div>
+        )}
+
+        {/* The coach stays mounted so the conversation and its undo history survive tab switches. */}
+        <div className={activeTab === 'coach' ? '' : 'hidden'}>
+          <AICoach active={activeTab === 'coach'} onViewPlan={setActiveTab} />
+        </div>
       </div>
+
+      {openExercise && <ExerciseModal exercise={openExercise} onClose={closeExercise} />}
     </div>
   )
 }

@@ -7,7 +7,7 @@ import { locales } from '@/i18n/config'
 import '../globals.css'
 import { UserProvider } from '@/context/UserContext'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin', 'cyrillic'] })
 
 export const metadata: Metadata = {
   title: 'Fitness & Nutrition App - Your Personal AI Coach',

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useUser } from '@/context/UserContext'
 import { useTranslations, useLocale } from 'next-intl'
@@ -24,9 +24,10 @@ import Card from './ui/Card'
 import Button from './ui/Button'
 import { exportMealPlanPDF } from '@/lib/pdfExport'
 import { generateFitnessPlan } from '@/lib/gemini'
+import { getMealDays, mealKind } from '@/lib/plan'
 
 export default function MealPlanPage() {
-  const { userData, setUserData } = useUser()
+  const { userData, setUserData, loading: userLoading } = useUser()
   const t = useTranslations('mealPlan')
   const locale = useLocale()
   const router = useRouter()
@@ -34,118 +35,8 @@ export default function MealPlanPage() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [selectedMeal, setSelectedMeal] = useState<any | null>(null)
 
-  // Transform data to weekly format
-  useEffect(() => {
-    console.log('UserData meal plan:', userData?.plan?.mealPlan)
-    console.log('Weekly meals:', userData?.plan?.mealPlan?.weeklyMeals)
-    console.log('Daily meals:', userData?.plan?.mealPlan?.dailyMeals)
-  }, [userData])
-
-  const mealPlans = useMemo(() => {
-    if (!userData?.plan?.mealPlan) {
-      console.log('No mealPlan in userData')
-      return []
-    }
-
-    const mealPlanData = userData.plan.mealPlan
-    const weeklyMeals = mealPlanData.weeklyMeals || []
-    const dailyMeals = mealPlanData.dailyMeals || []
-
-    console.log('Processing meal plan:', { weeklyMeals, dailyMeals })
-
-    // If we have weeklyMeals, use them directly
-    if (weeklyMeals.length > 0) {
-      console.log('Using weeklyMeals format, count:', weeklyMeals.length)
-      const processed = weeklyMeals.map((day: any, index: number) => {
-        const dayNumber = typeof day.day === 'number' ? day.day : (index + 1)
-        const meals = Array.isArray(day.meals) ? day.meals : []
-        
-        const processedMeals = meals.map((meal: any) => {
-          const mealName = meal.meal || meal.name || 'Meal'
-          let options = []
-          
-          if (Array.isArray(meal.options)) {
-            options = meal.options
-          } else if (meal.options) {
-            options = [meal.options]
-          } else if (meal.description) {
-            options = [meal.description]
-          } else if (typeof meal === 'string') {
-            options = [meal]
-          }
-          
-          return {
-            meal: mealName,
-            name: mealName,
-            options: options,
-            calories: meal.calories || 0,
-            protein: meal.protein || '',
-            carbs: meal.carbs || '',
-            fats: meal.fats || '',
-            description: meal.description || (options.length > 0 ? options.join(', ') : '')
-          }
-        })
-        
-        console.log(`Day ${dayNumber} has ${processedMeals.length} meals`)
-        return {
-          day: dayNumber,
-          meals: processedMeals
-        }
-      })
-      
-      console.log('Processed weekly meals:', processed)
-      return processed
-    }
-    
-    // Old format - convert single day to weekly
-    if (dailyMeals.length > 0) {
-      console.log('Using dailyMeals format (converting to weekly), count:', dailyMeals.length)
-      const convertedMeals = dailyMeals.map((meal: any) => {
-        const mealName = meal.meal || meal.name || 'Meal'
-        let options = []
-        
-        if (Array.isArray(meal.options)) {
-          options = meal.options
-        } else if (meal.options) {
-          options = [meal.options]
-        } else if (meal.description) {
-          options = [meal.description]
-        } else if (typeof meal === 'string') {
-          options = [meal]
-        }
-        
-        return {
-          meal: mealName,
-          name: mealName,
-          options: options,
-          calories: meal.calories || 0,
-          protein: meal.protein || '',
-          carbs: meal.carbs || '',
-          fats: meal.fats || '',
-          description: meal.description || (options.length > 0 ? options.join(', ') : '')
-        }
-      })
-      
-      console.log('Converted meals:', convertedMeals)
-      
-      // Duplicate for the week (as a fallback to show 7 days)
-      const template = {
-        day: 1,
-        meals: convertedMeals
-      }
-      
-      const weekly = Array.from({ length: 7 }, (_, i) => ({
-        ...template,
-        day: i + 1
-      }))
-      
-      console.log('Generated weekly plan from daily:', weekly)
-      return weekly
-    }
-    
-    console.log('No meal plan data found in any format')
-    return []
-  }, [userData])
+  // Plans saved in the old one-day format are repeated across the week.
+  const mealPlans = useMemo(() => getMealDays(userData?.plan?.mealPlan, true), [userData?.plan?.mealPlan])
 
   const mealIcons: Record<string, React.ReactNode> = {
     breakfast: <Coffee className="w-5 h-5" />,
@@ -154,31 +45,14 @@ export default function MealPlanPage() {
     snack: <Apple className="w-5 h-5" />,
   }
 
-  const getMealIcon = (mealName: string) => {
-    const name = mealName.toLowerCase()
-    if (name.includes('breakfast') || name.includes('завтрак') || name.includes('сніданок')) {
-      return mealIcons.breakfast
-    }
-    if (name.includes('lunch') || name.includes('обед') || name.includes('обід')) {
-      return mealIcons.lunch
-    }
-    if (name.includes('dinner') || name.includes('ужин') || name.includes('вечеря')) {
-      return mealIcons.dinner
-    }
-    return mealIcons.snack
-  }
+  const getMealIcon = (mealName: string) => mealIcons[mealKind(mealName)]
 
-  const handleExportPDF = () => {
-    const plans = mealPlans.map((plan: any) => ({
-      day: plan.day || 1,
-      date: new Date().toISOString(),
-      totalCalories: userData?.plan?.mealPlan?.calories || 0,
-      totalProtein: userData?.plan?.mealPlan?.macros?.protein || '0g',
-      totalCarbs: userData?.plan?.mealPlan?.macros?.carbs || '0g',
-      totalFats: userData?.plan?.mealPlan?.macros?.fats || '0g',
-      meals: plan.meals || plan.options || []
-    }))
-    exportMealPlanPDF(userData, plans, locale)
+  const handleExportPDF = async () => {
+    try {
+      await exportMealPlanPDF(userData, mealPlans, locale)
+    } catch (error) {
+      console.error('Error exporting PDF:', error)
+    }
   }
 
   const handleRegenerate = async () => {
@@ -186,20 +60,11 @@ export default function MealPlanPage() {
     
     setLoading(true)
     try {
-      const newPlan = await generateFitnessPlan(userData)
-      if (newPlan) {
-        const updatedData = {
-          ...userData,
-          plan: newPlan,
-          createdAt: Date.now()
-        }
-        setUserData(updatedData)
-        // Reload page to show new plan
-        window.location.reload()
-      }
+      const newPlan = await generateFitnessPlan(userData, locale)
+      setUserData((current: any) => ({ ...current, plan: newPlan, createdAt: Date.now() }))
     } catch (error) {
       console.error('Error regenerating plan:', error)
-      alert(t('regenerateError') || 'Error regenerating plan. Please try again.')
+      alert(t('regenerateError'))
     } finally {
       setLoading(false)
     }
@@ -214,29 +79,13 @@ export default function MealPlanPage() {
     return days[dayNumber - 1] || `Day ${dayNumber}`
   }
 
-  // Debug info
-  useEffect(() => {
-    if (userData) {
-      console.log('=== MEAL PLAN DEBUG ===')
-      console.log('UserData exists:', !!userData)
-      console.log('Plan exists:', !!userData.plan)
-      console.log('MealPlan exists:', !!userData.plan?.mealPlan)
-      if (userData.plan?.mealPlan) {
-        console.log('MealPlan structure:', Object.keys(userData.plan.mealPlan))
-        console.log('WeeklyMeals:', userData.plan.mealPlan.weeklyMeals)
-        console.log('DailyMeals:', userData.plan.mealPlan.dailyMeals)
-        console.log('WeeklyMeals length:', userData.plan.mealPlan.weeklyMeals?.length || 0)
-        console.log('DailyMeals length:', userData.plan.mealPlan.dailyMeals?.length || 0)
-      }
-      console.log('Processed mealPlans:', mealPlans)
-      console.log('MealPlans length:', mealPlans.length)
-      if (mealPlans.length > 0) {
-        console.log('First day meals:', mealPlans[0]?.meals)
-        console.log('First day meals count:', mealPlans[0]?.meals?.length || 0)
-      }
-      console.log('======================')
-    }
-  }, [userData, mealPlans])
+  if (userLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-fitness-orange border-t-transparent" />
+      </div>
+    )
+  }
 
   if (!userData) {
     return (
@@ -245,10 +94,10 @@ export default function MealPlanPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <Card className="text-center py-12">
             <UtensilsCrossed className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-4">{t('noPlan') || 'No Meal Plan Found'}</h2>
-            <p className="text-gray-600 mb-6">{t('completeOnboarding') || 'Please complete your onboarding to generate a meal plan.'}</p>
+            <h2 className="text-2xl font-bold mb-4">{t('noPlan')}</h2>
+            <p className="text-gray-600 mb-6">{t('completeOnboarding')}</p>
             <Button onClick={() => router.push(`/${locale}/onboarding`)}>
-              {t('goToOnboarding') || 'Go to Onboarding'}
+              {t('goToOnboarding')}
             </Button>
           </Card>
         </div>
@@ -263,31 +112,17 @@ export default function MealPlanPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <Card className="text-center py-12">
             <UtensilsCrossed className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-4">{t('noPlan') || 'No Meal Plan Found'}</h2>
+            <h2 className="text-2xl font-bold mb-4">{t('noPlan')}</h2>
             <p className="text-gray-600 mb-6">
-              {t('completeOnboarding') || 'Please complete your onboarding to generate a meal plan.'}
-              <br />
-              <span className="text-sm text-gray-500 mt-2 block">
-                {t('debugNoMealData') || 'Debug: Plan exists but no meal data found. Try regenerating the plan.'}
-              </span>
-              {userData?.plan?.mealPlan && (
-                <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-left text-xs max-w-md mx-auto">
-                  <p className="font-semibold mb-2">Debug Info:</p>
-                  <p>Has weeklyMeals: {userData.plan.mealPlan.weeklyMeals ? 'Yes' : 'No'}</p>
-                  <p>Has dailyMeals: {userData.plan.mealPlan.dailyMeals ? 'Yes' : 'No'}</p>
-                  <p>WeeklyMeals count: {userData.plan.mealPlan.weeklyMeals?.length || 0}</p>
-                  <p>DailyMeals count: {userData.plan.mealPlan.dailyMeals?.length || 0}</p>
-                  <p className="mt-2 text-xs">Check browser console (F12) for more details</p>
-                </div>
-              )}
+              {t('completeOnboarding')}
             </p>
             <div className="flex gap-3 justify-center">
               <Button onClick={handleRegenerate} disabled={loading}>
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                {t('regenerate') || 'Regenerate Plan'}
+                {t('regenerate')}
               </Button>
               <Button variant="outline" onClick={() => router.push(`/${locale}/onboarding`)}>
-                {t('goToOnboarding') || 'Go to Onboarding'}
+                {t('goToOnboarding')}
               </Button>
             </div>
           </Card>
@@ -310,10 +145,10 @@ export default function MealPlanPage() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-fitness-orange to-fitness-purple bg-clip-text text-transparent mb-2">
-                {t('title') || 'Weekly Meal Plan'}
+                {t('title')}
               </h1>
               <p className="text-gray-600 dark:text-gray-400">
-                {t('subtitle') || 'Your personalized nutrition plan for the week'}
+                {t('subtitle')}
               </p>
             </div>
             <div className="flex gap-3">
@@ -324,14 +159,14 @@ export default function MealPlanPage() {
                 className="flex items-center gap-2"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                {t('regenerate') || 'Regenerate'}
+                {t('regenerate')}
               </Button>
               <Button
                 onClick={handleExportPDF}
                 className="flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                {t('exportPDF') || 'Export PDF'}
+                {t('exportPDF')}
               </Button>
             </div>
           </div>
@@ -340,19 +175,19 @@ export default function MealPlanPage() {
           <Card className="bg-gradient-to-r from-fitness-orange to-fitness-purple text-white mb-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-sm opacity-90 mb-1">{t('dailyCalories') || 'Daily Calories'}</p>
+                <p className="text-sm opacity-90 mb-1">{t('dailyCalories')}</p>
                 <p className="text-2xl font-bold">{userData.plan?.mealPlan?.calories || 0}</p>
               </div>
               <div>
-                <p className="text-sm opacity-90 mb-1">{t('protein') || 'Protein'}</p>
+                <p className="text-sm opacity-90 mb-1">{t('protein')}</p>
                 <p className="text-2xl font-bold">{userData.plan?.mealPlan?.macros?.protein || '0g'}</p>
               </div>
               <div>
-                <p className="text-sm opacity-90 mb-1">{t('carbs') || 'Carbs'}</p>
+                <p className="text-sm opacity-90 mb-1">{t('carbs')}</p>
                 <p className="text-2xl font-bold">{userData.plan?.mealPlan?.macros?.carbs || '0g'}</p>
               </div>
               <div>
-                <p className="text-sm opacity-90 mb-1">{t('fats') || 'Fats'}</p>
+                <p className="text-sm opacity-90 mb-1">{t('fats')}</p>
                 <p className="text-2xl font-bold">{userData.plan?.mealPlan?.macros?.fats || '0g'}</p>
               </div>
             </div>
@@ -383,7 +218,7 @@ export default function MealPlanPage() {
                       <Calendar className="w-6 h-6 text-white" />
                     </div>
                     <h3 className="font-bold text-lg">{getDayName(dayNumber)}</h3>
-                    <p className="text-sm text-gray-500">Day {dayNumber}</p>
+                    <p className="text-sm text-gray-500">{t('day')} {dayNumber}</p>
                   </div>
 
                   <div className="space-y-2 min-h-[80px]">
@@ -409,12 +244,12 @@ export default function MealPlanPage() {
                         })}
                         {plan.meals.length > 3 && (
                           <p className="text-xs text-gray-500 text-center pt-1">
-                            +{plan.meals.length - 3} more
+                            {t('more', { count: plan.meals.length - 3 })}
                           </p>
                         )}
                       </>
                     ) : (
-                      <p className="text-xs text-gray-400 text-center py-2">{t('noMeals') || 'No meals'}</p>
+                      <p className="text-xs text-gray-400 text-center py-2">{t('noMeals')}</p>
                     )}
                   </div>
                 </Card>
@@ -447,18 +282,12 @@ export default function MealPlanPage() {
 
               <div className="grid md:grid-cols-2 gap-6">
                 {(() => {
-                  console.log('Selected day:', selectedDay)
-                  console.log('Meal plans:', mealPlans)
                   const dayPlan = mealPlans.find((p: any) => p.day === selectedDay) || mealPlans[selectedDay - 1]
-                  console.log('Found day plan:', dayPlan)
                   const meals = dayPlan?.meals || []
-                  console.log('Meals for selected day:', meals)
-                  
                   if (meals.length === 0) {
                     return (
                       <div className="col-span-2 text-center py-8 text-gray-500">
-                        <p>{t('noMealsForDay') || 'No meals available for this day'}</p>
-                        <p className="text-xs mt-2">Debug: Day plan found: {dayPlan ? 'Yes' : 'No'}, Meals count: {meals.length}</p>
+                        <p>{t('noMealsForDay')}</p>
                       </div>
                     )
                   }
@@ -479,14 +308,14 @@ export default function MealPlanPage() {
                           <h3 className="text-xl font-bold">{meal.meal || meal.name || `Meal ${index + 1}`}</h3>
                           <button className="text-xs text-fitness-orange hover:underline mt-1 flex items-center gap-1">
                             <Info className="w-3 h-3" />
-                            {t('viewDetails') || 'View details'}
+                            {t('viewDetails')}
                           </button>
                         </div>
                       </div>
 
                       <div className="space-y-3">
                         <div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{t('options') || 'Options'}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{t('options')}</p>
                           <div className="flex flex-wrap gap-2">
                             {meal.options && meal.options.length > 0 ? (
                               meal.options.map((option: string, optIndex: number) => (
@@ -503,20 +332,20 @@ export default function MealPlanPage() {
                               </span>
                             ) : (
                               <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-sm">
-                                {t('noOptionsAvailable') || 'No options available'}
+                                {t('noOptionsAvailable')}
                               </span>
                             )}
                           </div>
                         </div>
 
-                        {(meal.calories || meal.protein || meal.carbs || meal.fats) && (
+                        {Boolean(meal.calories || meal.protein || meal.carbs || meal.fats) && (
                           <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-                            <p className="text-sm font-semibold mb-2">{t('nutrition') || 'Nutrition'}</p>
+                            <p className="text-sm font-semibold mb-2">{t('nutrition')}</p>
                             <div className="grid grid-cols-2 gap-2 text-sm">
-                              {meal.calories && (
+                              {meal.calories > 0 && (
                                 <div className="flex items-center gap-2">
                                   <Clock className="w-4 h-4 text-gray-400" />
-                                  <span>{meal.calories} {t('cal') || 'cal'}</span>
+                                  <span>{meal.calories} {t('cal')}</span>
                                 </div>
                               )}
                               {meal.protein && (
@@ -571,7 +400,7 @@ export default function MealPlanPage() {
                     </div>
                     <div>
                       <h2 className="text-2xl font-bold">{selectedMeal.meal || selectedMeal.name || 'Meal'}</h2>
-                      <p className="text-sm text-gray-500">{t('mealDetails') || 'Meal Details'}</p>
+                      <p className="text-sm text-gray-500">{t('mealDetails')}</p>
                     </div>
                   </div>
                   <button
@@ -586,7 +415,7 @@ export default function MealPlanPage() {
                   {/* Options */}
                   {(selectedMeal.options && selectedMeal.options.length > 0) || selectedMeal.description ? (
                     <div>
-                      <h3 className="text-lg font-semibold mb-3">{t('options') || 'Options'}</h3>
+                      <h3 className="text-lg font-semibold mb-3">{t('options')}</h3>
                       <div className="flex flex-wrap gap-2">
                         {selectedMeal.options && selectedMeal.options.length > 0 ? (
                           selectedMeal.options.map((option: string, optIndex: number) => (
@@ -607,34 +436,34 @@ export default function MealPlanPage() {
                   ) : null}
 
                   {/* Nutrition Info */}
-                  {(selectedMeal.calories || selectedMeal.protein || selectedMeal.carbs || selectedMeal.fats) && (
+                  {Boolean(selectedMeal.calories || selectedMeal.protein || selectedMeal.carbs || selectedMeal.fats) && (
                     <div className="p-4 bg-gradient-to-r from-fitness-orange/10 to-fitness-purple/10 rounded-xl">
-                      <h3 className="text-lg font-semibold mb-3">{t('nutrition') || 'Nutrition Information'}</h3>
+                      <h3 className="text-lg font-semibold mb-3">{t('nutrition')}</h3>
                       <div className="grid grid-cols-2 gap-4">
-                        {selectedMeal.calories && (
+                        {selectedMeal.calories > 0 && (
                           <div className="flex items-center gap-2">
                             <Clock className="w-5 h-5 text-fitness-orange" />
                             <div>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">{t('calories') || 'Calories'}</p>
-                              <p className="text-xl font-bold">{selectedMeal.calories} {t('cal') || 'cal'}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">{t('calories')}</p>
+                              <p className="text-xl font-bold">{selectedMeal.calories} {t('cal')}</p>
                             </div>
                           </div>
                         )}
                         {selectedMeal.protein && (
                           <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{t('protein') || 'Protein'}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{t('protein')}</p>
                             <p className="text-xl font-bold text-blue-600">{selectedMeal.protein}</p>
                           </div>
                         )}
                         {selectedMeal.carbs && (
                           <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{t('carbs') || 'Carbohydrates'}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{t('carbs')}</p>
                             <p className="text-xl font-bold text-green-600">{selectedMeal.carbs}</p>
                           </div>
                         )}
                         {selectedMeal.fats && (
                           <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{t('fats') || 'Fats'}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{t('fats')}</p>
                             <p className="text-xl font-bold text-orange-600">{selectedMeal.fats}</p>
                           </div>
                         )}
@@ -645,7 +474,7 @@ export default function MealPlanPage() {
                   {/* Ingredients */}
                   {selectedMeal.ingredients && selectedMeal.ingredients.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold mb-3">{t('ingredients') || 'Ingredients'}</h3>
+                      <h3 className="text-lg font-semibold mb-3">{t('ingredients')}</h3>
                       <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
                         {selectedMeal.ingredients.map((ingredient: string, ingIndex: number) => (
                           <li key={ingIndex}>{ingredient}</li>
@@ -657,7 +486,7 @@ export default function MealPlanPage() {
                   {/* Instructions */}
                   {selectedMeal.instructions && selectedMeal.instructions.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold mb-3">{t('instructions') || 'Instructions'}</h3>
+                      <h3 className="text-lg font-semibold mb-3">{t('instructions')}</h3>
                       <ol className="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-300">
                         {selectedMeal.instructions.map((instruction: string, instIndex: number) => (
                           <li key={instIndex}>{instruction}</li>

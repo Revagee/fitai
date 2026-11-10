@@ -29,17 +29,15 @@
 ✅ **Responsive Design** - Works on all devices
 ✅ **Animations** - Smooth transitions with Framer Motion
 
-## Default Gemini API Key
+## Gemini API Key
 
-The Gemini API key is already configured in the code:
+AI features need your own Gemini API key (https://aistudio.google.com/apikey). Put it in `.env.local`:
 ```
-AIzaSyAuwXyN-WV2raJPB593tXuzRA2kLY1M1Ic
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
-You can also set it in `.env.local`:
-```
-NEXT_PUBLIC_GEMINI_API_KEY=AIzaSyAuwXyN-WV2raJPB593tXuzRA2kLY1M1Ic
-```
+The key is used only on the server (`app/api/ai/route.ts`) and never reaches the browser.
+Do not commit it and do not prefix it with `NEXT_PUBLIC_`. Without a key the app runs in demo mode.
 
 ## Project Structure
 

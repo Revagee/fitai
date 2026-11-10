@@ -2,20 +2,22 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import { useUser } from '@/context/UserContext';
 import Dashboard from '@/components/Dashboard';
 
 export default function DashboardPage() {
   const { userData, loading } = useUser();
   const router = useRouter();
+  const locale = useLocale();
 
   useEffect(() => {
     // Если загрузка завершилась (!loading) И данных всё ещё нет (!userData)
     // Только тогда выкидываем на анкету
     if (!loading && !userData) {
-      router.push('/onboarding');
+      router.push(`/${locale}/onboarding`);
     }
-  }, [userData, loading, router]);
+  }, [userData, loading, router, locale]);
 
   if (loading) {
     return (

@@ -11,6 +11,7 @@ import { User, Target, UtensilsCrossed, CheckCircle2, ArrowRight, ArrowLeft, Loa
 import Button from './ui/Button';
 import Card from './ui/Card';
 import Navbar from './ui/Navbar';
+import { DIET_OPTIONS, EQUIPMENT_OPTIONS } from '@/lib/options';
 
 interface FormData {
   name: string;
@@ -30,9 +31,10 @@ export default function Onboarding() {
   const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('onboarding');
-  const { user, setUserData } = useUser();
+  const { user, userData, setUserData } = useUser();
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [showError, setShowError] = useState(false);
 
   const steps = [
     { id: 'personal', title: t('steps.personalInfo'), icon: User },
@@ -71,7 +73,32 @@ export default function Onboarding() {
     });
   };
 
+  const inRange = (value: string, min: number, max: number) => Number(value) >= min && Number(value) <= max;
+
+  const isStepValid = () => {
+    if (currentStep === 0) {
+      return (
+        formData.name.trim() !== '' &&
+        formData.gender !== '' &&
+        formData.activityLevel !== '' &&
+        inRange(formData.age, 10, 120) &&
+        inRange(formData.height, 100, 250) &&
+        inRange(formData.weight, 30, 400)
+      );
+    }
+    if (currentStep === 1) {
+      return formData.fitnessGoal !== '' && formData.trainingFrequency !== '' && formData.equipmentAccess.length > 0;
+    }
+    return true;
+  };
+
   const handleNext = () => {
+    if (!isStepValid()) {
+      setShowError(true);
+      return;
+    }
+    setShowError(false);
+
     if (currentStep < steps.length - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
@@ -80,6 +107,7 @@ export default function Onboarding() {
   };
 
   const handleBack = () => {
+    setShowError(false);
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1);
     }
@@ -88,11 +116,12 @@ export default function Onboarding() {
   const handleGenerate = async () => {
     setIsLoading(true);
     try {
-      const generatedPlan = await generateFitnessPlan(formData);
-      
+      const generatedPlan = await generateFitnessPlan(formData, locale);
+
       if (generatedPlan && user) {
         const dataToSave = {
           ...formData,
+          progress: userData?.progress || [],
           plan: generatedPlan,
           createdAt: Date.now() 
         };
@@ -100,11 +129,11 @@ export default function Onboarding() {
         setUserData(dataToSave);
         window.location.href = `/${locale}/dashboard`; 
       } else {
-        alert(t('error') || "Ошибка: Искусственный интеллект не вернул план. Проверь консоль браузера (F12) на наличие ошибок API.");
+        alert(t('error'));
       }
     } catch (error) {
       console.error("Критическая ошибка:", error);
-      alert("Произошла ошибка при генерации. Проверьте API ключ.");
+      alert(t('error'));
     } finally {
       setIsLoading(false);
     }
@@ -310,9 +339,9 @@ export default function Onboarding() {
                         <option value="">{t('goals.goalSelect')}</option>
                         <option value="weight_loss">{t('goals.fatLoss')}</option>
                         <option value="muscle_gain">{t('goals.muscleGain')}</option>
-                        <option value="endurance">Endurance</option>
-                        <option value="flexibility">Flexibility & Mobility</option>
-                        <option value="maintenance">Maintenance</option>
+                        <option value="endurance">{t('goals.endurance')}</option>
+                        <option value="flexibility">{t('goals.flexibility')}</option>
+                        <option value="maintenance">{t('goals.maintenance')}</option>
                       </select>
                     </div>
 
@@ -339,7 +368,7 @@ export default function Onboarding() {
                         {t('goals.equipment')}
                       </label>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {['Gym', 'Dumbbells', 'Resistance Bands', 'Bodyweight Only', 'Pull-up Bar'].map((item) => (
+                        {EQUIPMENT_OPTIONS.map(({ value: item, key: labelKey }) => (
                           <motion.label
                             key={item}
                             whileHover={{ scale: 1.05 }}
@@ -357,7 +386,7 @@ export default function Onboarding() {
                               onChange={(e) => handleCheckboxChange(e, 'equipmentAccess')}
                               className="w-5 h-5 rounded text-fitness-orange focus:ring-fitness-orange"
                             />
-                            <span className="text-sm font-medium">{item}</span>
+                            <span className="text-sm font-medium">{t(labelKey)}</span>
                           </motion.label>
                         ))}
                       </div>
@@ -382,7 +411,7 @@ export default function Onboarding() {
                         {t('preferences.dietPreferences')}
                       </label>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {['No Preference', 'Vegetarian', 'Vegan', 'Keto', 'Paleo', 'Gluten-free'].map((item) => (
+                        {DIET_OPTIONS.map(({ value: item, key: labelKey }) => (
                           <motion.label
                             key={item}
                             whileHover={{ scale: 1.05 }}
@@ -400,7 +429,7 @@ export default function Onboarding() {
                               onChange={(e) => handleCheckboxChange(e, 'dietPreferences')}
                               className="w-5 h-5 rounded text-fitness-purple focus:ring-fitness-purple"
                             />
-                            <span className="text-sm font-medium">{item}</span>
+                            <span className="text-sm font-medium">{t(labelKey)}</span>
                           </motion.label>
                         ))}
                       </div>
@@ -423,6 +452,10 @@ export default function Onboarding() {
               )}
             </motion.div>
           </AnimatePresence>
+
+          {showError && (
+            <p role="alert" className="mt-6 text-sm font-medium text-red-600">{t('validation')}</p>
+          )}
 
           {/* Navigation Buttons */}
           <div className="flex justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">

@@ -19,7 +19,8 @@
     "dashboard": "Dashboard",
     "progress": "Progress",
     "settings": "Settings",
-    "profile": "Profile"
+    "profile": "Profile",
+    "mealPlan": "Meal plan"
   },
   "landing": {
     "heroTitle": "Your Personal AI Fitness Coach",
@@ -41,17 +42,51 @@
     },
     "testimonials": {
       "title": "What Our Users Say",
-      "subtitle": "Join thousands of satisfied users transforming their lives"
+      "subtitle": "Join thousands of satisfied users transforming their lives",
+      "sarah": {
+        "role": "Fitness Enthusiast",
+        "content": "This app transformed my fitness journey! The meal plans are delicious and the workouts are challenging yet achievable."
+      },
+      "mike": {
+        "role": "Busy Professional",
+        "content": "Perfect for my hectic schedule. The AI coach helps me stay on track even when I miss workouts."
+      },
+      "emily": {
+        "role": "Beginner",
+        "content": "As someone new to fitness, the personalized guidance has been invaluable. I feel stronger every week!"
+      }
     },
     "pricing": {
       "title": "Simple, Transparent Pricing",
-      "subtitle": "Start free, upgrade when you're ready"
+      "subtitle": "Start free, upgrade when you're ready",
+      "perWeek": "/week",
+      "perMonth": "/month",
+      "popular": "POPULAR",
+      "free": {
+        "name": "Free Trial",
+        "f1": "7-day meal plan",
+        "f2": "7-day workout plan",
+        "f3": "Basic AI coach access",
+        "f4": "Progress tracking"
+      },
+      "pro": {
+        "name": "Pro",
+        "f1": "Unlimited meal plans",
+        "f2": "Unlimited workout plans",
+        "f3": "Priority AI coach access",
+        "f4": "Advanced progress tracking",
+        "f5": "PDF export",
+        "f6": "Priority support"
+      }
     },
     "cta": {
       "title": "Ready to Transform Your Life?",
       "description": "Join thousands of users who have achieved their fitness goals with our AI-powered platform.",
       "startJourney": "Start Your Journey"
-    }
+    },
+    "featuresTitle": "Everything You Need to Succeed",
+    "featuresSubtitle": "Powerful features designed to help you reach your goals",
+    "footer": "© 2024 FitAI. All rights reserved. Your personal AI fitness coach."
   },
   "onboarding": {
     "steps": {
@@ -65,16 +100,7 @@
     "next": "Next",
     "generating": "Generating plan...",
     "personalInfo": {
-      "description": "Tell us about yourself so we can create a personalized plan"
-    },
-    "goals": {
-      "description": "Define your fitness goals and available equipment",
-      "daysPerWeek": "days per week"
-    },
-    "preferences": {
-      "description": "Your dietary preferences and restrictions"
-    },
-    "personalInfo": {
+      "description": "Tell us about yourself so we can create a personalized plan",
       "name": "Full Name",
       "namePlaceholder": "Enter your full name",
       "gender": "Gender",
@@ -98,6 +124,8 @@
       "veryActive": "Very Active (hard exercise 6-7 days/week)"
     },
     "goals": {
+      "description": "Define your fitness goals and available equipment",
+      "daysPerWeek": "days per week",
       "fitnessGoal": "Primary Fitness Goal",
       "goalSelect": "Select your goal",
       "muscleGain": "Muscle Gain",
@@ -110,9 +138,13 @@
       "equipmentBands": "Resistance Bands",
       "equipmentPullUpBar": "Pull-up Bar",
       "equipmentGym": "Gym Membership",
-      "equipmentNone": "None (Bodyweight)"
+      "equipmentNone": "None (Bodyweight)",
+      "endurance": "Endurance",
+      "flexibility": "Flexibility & Mobility",
+      "maintenance": "Maintenance"
     },
     "preferences": {
+      "description": "Your dietary preferences and restrictions",
       "dietPreferences": "Diet Preferences (select all that apply)",
       "vegetarian": "Vegetarian",
       "vegan": "Vegan",
@@ -122,8 +154,10 @@
       "noRestrictions": "No Restrictions",
       "allergies": "Allergies or Food Restrictions (comma separated)",
       "allergiesPlaceholder": "e.g., Peanuts, Dairy, Gluten",
-      "completeSetup": "Complete Setup"
-    }
+      "completeSetup": "Complete Setup",
+      "glutenFree": "Gluten-free"
+    },
+    "validation": "Please fill in all fields with valid values."
   },
   "dashboard": {
     "welcome": "Welcome back, {name}! 👋",
@@ -172,8 +206,15 @@
       "setsReps": "{sets} sets × {reps} reps",
       "rest": "Rest: {seconds}s",
       "target": "Target: {muscles}",
-      "notes": "Notes:"
-    }
+      "notes": "Notes:",
+      "howTo": "How to do it",
+      "tapHint": "Tap an exercise to see an animated demo, the technique and a set timer.",
+      "markDone": "Mark as done",
+      "done": "Done today"
+    },
+    "day": "Day {day}",
+    "restDay": "Rest day",
+    "demoNotice": "Demo plan: built from templates without AI. Add a Gemini API key for a personalized plan, and check the ingredients against your allergies."
   },
   "progress": {
     "title": "Progress Tracking",
@@ -182,7 +223,8 @@
       "weightLoss": "Weight Loss",
       "workouts": "Workouts",
       "avgCalories": "Avg Calories",
-      "consistency": "Consistency"
+      "consistency": "Consistency",
+      "weightChange": "Weight Change"
     },
     "charts": {
       "weightProgress": "Weight Progress",
@@ -206,7 +248,24 @@
       "carbs": "Carbs:",
       "fats": "Fats:",
       "perDay": "g/day"
-    }
+    },
+    "periods": {
+      "week": "Week",
+      "month": "Month",
+      "year": "Year"
+    },
+    "log": {
+      "title": "Log Today",
+      "date": "Date",
+      "weight": "Weight (kg)",
+      "calories": "Calories",
+      "workouts": "Workouts",
+      "save": "Save Entry",
+      "hint": "Saving the same date again replaces that entry."
+    },
+    "noData": "No entries for this period yet. Add your first one above.",
+    "notSet": "Not set",
+    "kcalPerDay": "kcal/day"
   },
   "mealPlan": {
     "title": "Weekly Meal Plan",
@@ -232,7 +291,9 @@
     "calories": "Calories",
     "ingredients": "Ingredients",
     "instructions": "Instructions",
-    "debugNoMealData": "Debug: Plan exists but no meal data found. Try regenerating the plan."
+    "debugNoMealData": "Debug: Plan exists but no meal data found. Try regenerating the plan.",
+    "noOptionsAvailable": "No options available",
+    "more": "+{count} more"
   },
   "aiCoach": {
     "title": "AI Fitness Coach",
@@ -240,7 +301,23 @@
     "placeholder": "Ask me anything about fitness or nutrition...",
     "send": "Send",
     "thinking": "Thinking...",
-    "welcome": "Hi! I'm your AI fitness coach. I'm here to help you with nutrition, workouts, and achieving your fitness goals. What would you like to know?"
+    "welcome": "Hi! I'm your AI fitness coach. Ask me about nutrition and training — or tell me what to change in your plan, and I'll update it right here. For example: “replace squats on day 1” or “make Tuesday's dinner lighter”.",
+    "error": "Something went wrong. Please try again later.",
+    "applied": "Plan updated",
+    "undone": "Changes undone",
+    "undo": "Undo",
+    "changedWorkout": "Workouts: day {days}",
+    "changedMeal": "Meals: day {days}",
+    "changedTargets": "Daily calorie and macro targets",
+    "viewWorkout": "Open workouts",
+    "viewMeal": "Open meals",
+    "clear": "Clear chat",
+    "suggestions": {
+      "s1": "Replace the squats on day 1 with something easier on the knees",
+      "s2": "Make the dinner on day 2 vegetarian",
+      "s3": "Add an abs exercise to day 3",
+      "s4": "What should I eat before a workout?"
+    }
   },
   "profile": {
     "title": "Personal Account",
@@ -291,6 +368,37 @@
     "viewDashboard": "View Dashboard",
     "viewProgress": "View Progress",
     "updateProfile": "Update Profile"
+  },
+  "exercise": {
+    "animation": "Animated demonstration of the exercise",
+    "pattern": "Movement pattern: {name}",
+    "noDemo": "There is no animation for this exercise yet — watch a video or ask the AI for the technique.",
+    "watchVideo": "Watch a video",
+    "videoQuery": "proper form",
+    "muscles": "Muscles worked",
+    "technique": "Technique",
+    "mistakes": "Common mistakes",
+    "coachNote": "Note from your plan",
+    "breathing": "Breathing",
+    "askAI": "Detailed technique from the AI",
+    "aiLoading": "The AI is preparing the guide...",
+    "aiError": "Couldn't get the guide. Please try again later.",
+    "aiBadge": "AI guide",
+    "play": "Play",
+    "pause": "Pause",
+    "slow": "Slow motion",
+    "scrub": "Position in the movement",
+    "exhale": "Exhale — effort",
+    "inhale": "Inhale — easier phase",
+    "hold": "Hold the position, breathe evenly",
+    "rhythm": "Keep a steady rhythm",
+    "setsTitle": "Set tracker",
+    "setDone": "Set {current} of {total} done",
+    "restTimer": "Rest:",
+    "seconds": "s",
+    "skipRest": "Skip",
+    "allDone": "All sets done! 💪",
+    "reset": "Reset",
+    "close": "Close"
   }
 }
-

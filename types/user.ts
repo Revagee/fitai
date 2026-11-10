@@ -6,8 +6,8 @@ export interface User {
   age?: number
   height?: number // in cm
   weight?: number // in kg
-  fitnessGoal?: 'muscle_gain' | 'fat_loss'
-  activityLevel?: 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active'
+  fitnessGoal?: 'muscle_gain' | 'fat_loss' | 'weight_loss' | 'endurance' | 'flexibility' | 'maintenance'
+  activityLevel?: 'sedentary' | 'light' | 'lightly_active' | 'moderate' | 'moderately_active' | 'active' | 'very_active'
   equipmentAccess?: string[]
   dietPreferences?: string[]
   allergies?: string[]

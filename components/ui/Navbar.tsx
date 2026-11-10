@@ -15,6 +15,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const locale = useLocale()
   const t = useTranslations('nav')
+  const tCommon = useTranslations('common')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Remove locale prefix from pathname for comparison
@@ -23,6 +24,7 @@ export default function Navbar() {
   const links = [
     { href: `/${locale}`, label: t('home') },
     { href: `/${locale}/dashboard`, label: t('dashboard') },
+    { href: `/${locale}/meal-plan`, label: t('mealPlan') },
     { href: `/${locale}/progress`, label: t('progress') },
     { href: `/${locale}/profile`, label: t('profile') },
   ]
@@ -57,7 +59,7 @@ export default function Navbar() {
             ))}
             <LanguageSwitcher />
             <Link href={`/${locale}/onboarding`}>
-              <Button size="sm">{useTranslations('common')('getStarted')}</Button>
+              <Button size="sm">{tCommon('getStarted')}</Button>
             </Link>
           </div>
 
@@ -100,7 +102,7 @@ export default function Navbar() {
               </Link>
             ))}
             <Link href={`/${locale}/onboarding`} onClick={() => setMobileMenuOpen(false)}>
-              <Button size="sm" className="w-full mt-4">{useTranslations('common')('getStarted')}</Button>
+              <Button size="sm" className="w-full mt-4">{tCommon('getStarted')}</Button>
             </Link>
           </div>
         </motion.div>
