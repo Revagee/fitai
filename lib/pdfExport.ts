@@ -53,7 +53,7 @@ function workoutSections(workoutPlans: any[], locale: string) {
     const exercises = (plan.exercises || [])
       .map((ex: any) => `<div style="padding:8px 16px">
         <div style="font-size:15px;font-weight:700;color:#ff6b35">${esc(ex.name)}</div>
-        <div style="font-size:13px;color:#1f2937;margin-top:3px">${esc(l.sets)}: ${esc(ex.sets)} | ${esc(l.reps)}: ${esc(ex.reps)}${ex.restSeconds ? ` | ${esc(l.rest)}: ${esc(ex.restSeconds)}${esc(l.sec)}` : ''}</div>
+        <div style="font-size:13px;color:#1f2937;margin-top:3px">${esc(l.sets)}: ${esc(ex.sets)} | ${esc(l.reps)}: ${esc(ex.reps)}${ex.weight ? ` | ${esc(ex.weight)}` : ''}${ex.restSeconds ? ` | ${esc(l.rest)}: ${esc(ex.restSeconds)}${esc(l.sec)}` : ''}</div>
         ${ex.notes ? `<div style="font-size:12px;color:#4b5563;margin-top:3px">${esc(ex.notes)}</div>` : ''}
       </div>`)
       .join('')

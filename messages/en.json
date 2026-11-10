@@ -163,7 +163,9 @@
       "allergies": "Allergies or Food Restrictions (comma separated)",
       "allergiesPlaceholder": "e.g., Peanuts, Dairy, Gluten",
       "completeSetup": "Complete Setup",
-      "glutenFree": "Gluten-free"
+      "glutenFree": "Gluten-free",
+      "customDietPlaceholder": "Your own, e.g. no sugar, halal, more fish",
+      "addDiet": "Add"
     },
     "validation": "Please fill in all fields with valid values."
   },
@@ -218,7 +220,8 @@
       "howTo": "How to do it",
       "tapHint": "Tap an exercise to see an animated demo, the technique and a set timer.",
       "markDone": "Mark as done",
-      "done": "Done today"
+      "done": "Done today",
+      "weight": "weight: {weight}"
     },
     "day": "Day {day}",
     "restDay": "Rest day",
@@ -434,6 +437,11 @@
     "similar": "Similar movement: {name}. The technique below is for your exact exercise.",
     "stepOf": "Step {current} of {total}",
     "prev": "Back",
-    "next": "Next"
+    "next": "Next",
+    "myWeight": "My working weight",
+    "myWeightPlaceholder": "e.g. 12 kg",
+    "myWeightHint": "Saved automatically; the next plan bases its recommendations on it. The recommended weight is an estimate — start lighter if unsure.",
+    "swap": "Replace this exercise (AI)",
+    "swapError": "Couldn't replace the exercise. Please try again."
   }
 }

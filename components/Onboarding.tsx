@@ -11,7 +11,8 @@ import { User, Target, UtensilsCrossed, CheckCircle2, ArrowRight, ArrowLeft, Loa
 import Button from './ui/Button';
 import Card from './ui/Card';
 import Navbar from './ui/Navbar';
-import { DIET_OPTIONS, EQUIPMENT_OPTIONS } from '@/lib/options';
+import { DIET_OPTIONS, EQUIPMENT_OPTIONS, addDiet, customDiets } from '@/lib/options';
+import TagInput from './ui/TagInput';
 
 interface FormData {
   name: string;
@@ -74,6 +75,8 @@ export default function Onboarding() {
       }
     });
   };
+
+  const setDiets = (dietPreferences: string[]) => setFormData((prev) => ({ ...prev, dietPreferences }));
 
   const inRange = (value: string, min: number, max: number) => Number(value) >= min && Number(value) <= max;
 
@@ -448,6 +451,15 @@ export default function Onboarding() {
                             <span className="text-sm font-medium">{t(labelKey)}</span>
                           </motion.label>
                         ))}
+                      </div>
+                      <div className="mt-3">
+                        <TagInput
+                          values={customDiets(formData.dietPreferences)}
+                          onAdd={(value) => setDiets(addDiet(formData.dietPreferences, value))}
+                          onRemove={(value) => setDiets((formData.dietPreferences || []).filter((item: string) => item !== value))}
+                          placeholder={t('preferences.customDietPlaceholder')}
+                          addLabel={t('preferences.addDiet')}
+                        />
                       </div>
                     </div>
 

@@ -17,6 +17,17 @@ export const DIET_OPTIONS: { value: string; key: string }[] = [
   { value: 'Gluten-free', key: 'preferences.glutenFree' },
 ]
 
+const PRESET_DIETS = DIET_OPTIONS.map((option) => option.value)
+
+/** Diet preferences the user typed in themselves (anything that is not one of the presets). */
+export const customDiets = (selected: string[] = []) => selected.filter((item) => !PRESET_DIETS.includes(item))
+
+/** Adds the user's own preference; a specific preference replaces "No Preference". */
+export const addDiet = (selected: string[] = [], value: string) =>
+  selected.some((item) => item.toLowerCase() === value.toLowerCase())
+    ? selected
+    : [...selected.filter((item) => item !== 'No Preference'), value]
+
 /** Translation key in the `profile` namespace for a stored fitness goal. */
 export const GOAL_KEYS: Record<string, string> = {
   weight_loss: 'weightLoss',

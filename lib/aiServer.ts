@@ -95,7 +95,8 @@ const line = (value: unknown, max = 80) =>
 const list = (value: unknown) => (Array.isArray(value) ? value : []).slice(0, 12).map((item) => line(item, 40)).filter(Boolean).join(', ')
 
 export async function planFromAI(userData: any, locale: string, previous?: any) {
-  const lastWeek = previous && typeof previous === 'object' ? JSON.stringify(previous.workouts ?? null).slice(0, 6000) : ''
+  const lastWeek = previous?.workouts ? JSON.stringify(previous.workouts).slice(0, 6000) : ''
+  const lifts = previous?.lifts && Object.keys(previous.lifts).length ? JSON.stringify(previous.lifts).slice(0, 1500) : ''
   const prompt = `
       You are an elite fitness coach. Create a JSON fitness plan for this user.
       Write every text value (focus, exercise and meal names, options, notes, tips) in ${LANGUAGE_NAMES[locale] || 'English'}. Keep the JSON keys in English.
@@ -118,6 +119,8 @@ export async function planFromAI(userData: any, locale: string, previous?: any) 
       ${lastWeek}
       Build on it: if most workouts were done, progress modestly (a little more reps, sets or a harder variation) and swap one or two exercises per day for variety; if few were done, make the week easier to stick to. Vary the meals compared to a typical repeat.` : ''}
 
+      ${lifts ? `Loads the user actually worked with (exercise -> load): ${lifts}. Base the recommended weights on them.` : ''}
+
       REQUIRED JSON STRUCTURE (Create a 7-day plan):
       {
         "workoutPlan": [
@@ -125,7 +128,7 @@ export async function planFromAI(userData: any, locale: string, previous?: any) 
             "day": "Day 1",
             "focus": "Legs/Cardio",
             "exercises": [
-              { "name": "Squats", "sets": "3", "reps": "12", "rest": 60, "notes": "Keep back straight", "demo": "squat" }
+              { "name": "Squats", "sets": "3", "reps": "12", "weight": "2 × 10", "rest": 60, "notes": "Keep back straight", "demo": "squat" }
             ]
           },
           { "day": "Day 2", "focus": "Upper Body", "exercises": [...] },
@@ -150,7 +153,10 @@ export async function planFromAI(userData: any, locale: string, previous?: any) 
         "tips": ["Drink water", "Sleep 8 hours"]
       }
 
-      For every exercise: "rest" is the rest between sets in seconds, and "demo" is the movement pattern
+      For every exercise: "weight" is a recommended starting load for THIS user as a short text written in ${LANGUAGE_NAMES[locale] || 'English'}, units included
+      (two 8-kilogram dumbbells, bodyweight, a light band and so on). Base it on sex, body weight, goal and the available
+      equipment, and stay on the conservative side: the last reps should be hard but clean.
+      "rest" is the rest between sets in seconds, and "demo" is the movement pattern
       it matches, one of: ${DEMO_KEYS.join(', ')}. Use "" unless the exercise is that movement or a close variation of it.
 
       Days do not need the same calories: training days may be higher and rest days lower,
@@ -225,12 +231,13 @@ Rules for "changes":
 - Keep it null unless the user clearly asks to change, replace, add or remove something in their plan (or agrees to a change you proposed). For questions and advice it must be null.
 - Otherwise use this shape, including only the parts that change:
   {
-    "workoutDays": [ { "day": 1, "focus": "...", "exercises": [ { "name": "...", "sets": "3", "reps": "10-12", "rest": 60, "notes": "...", "demo": "squat" } ] } ],
+    "workoutDays": [ { "day": 1, "focus": "...", "exercises": [ { "name": "...", "sets": "3", "reps": "10-12", "weight": "recommended load in the plan's language", "rest": 60, "notes": "...", "demo": "squat" } ] } ],
     "mealDays": [ { "day": 1, "meals": [ { "meal": "Breakfast", "options": ["..."], "calories": 400, "protein": "20g", "carbs": "50g", "fats": "10g" } ] } ],
     "mealTargets": { "calories": 2000, "protein": "150g", "carbs": "200g", "fats": "60g" }
   }
 - Each day you include REPLACES that whole day, so list every exercise or meal of that day after the change, copying the untouched ones exactly as they are. Do not include days that stay the same.
 - A rest day is a workout day with an empty "exercises" list.
+- Give every new or changed exercise a conservative recommended "weight" for this user (short text in the plan's language); keep the weight of untouched exercises.
 - "demo" is the movement pattern the exercise matches, one of: ${DEMO_KEYS.join(', ')}. Use "" unless the exercise is that movement or a close variation of it.
 - Write exercise names, meal names, options, focus and notes in the same language the current plan uses.
 - Respect the user's equipment, training wishes, diet and allergies. Days may differ in calories (more on training days, less on rest days) as long as the weekly average stays close to the target, unless the user asks otherwise.
@@ -292,6 +299,7 @@ export async function translatePlanWithAI(plan: any, locale: string): Promise<an
     for (const exercise of Array.isArray(day?.exercises) ? day.exercises : []) {
       slot(exercise, 'name')
       slot(exercise, 'notes')
+      slot(exercise, 'weight')
       // Reps are usually a number, but can carry words ("45 sec", "10 per leg").
       if (/[^\d\s\-–.,x×]/.test(String(exercise?.reps ?? ''))) slot(exercise, 'reps')
     }

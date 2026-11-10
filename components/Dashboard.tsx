@@ -31,9 +31,9 @@ import PlanTranslator from './PlanTranslator'
 import { useUser } from '@/context/UserContext'
 import { calculateUserMetrics } from '@/lib/utils'
 import { exportMealPlanPDF, exportWorkoutPlanPDF } from '@/lib/pdfExport'
-import { generateFitnessPlan } from '@/lib/gemini'
-import { compactPlan, getMealDays, getWorkoutDays, mealKind, type ExerciseView } from '@/lib/plan'
-import { WEEK_DAYS, daysInto, setDayDone, setExerciseDone, startNewWeek, weekOf } from '@/lib/week'
+import { chatWithAI, generateFitnessPlan } from '@/lib/gemini'
+import { applyPlanChanges, compactPlan, getMealDays, getWorkoutDays, mealKind, type ExerciseView } from '@/lib/plan'
+import { WEEK_DAYS, clearExerciseMarks, daysInto, setDayDone, setExerciseDone, startNewWeek, weekOf } from '@/lib/week'
 
 type Tab = 'meal' | 'workout' | 'coach'
 
@@ -64,9 +64,10 @@ export default function Dashboard() {
 
     setLoading(true)
     try {
-      const previous = nextWeek
-        ? { workouts: compactPlan(userData.plan).workoutPlan, completed: doneCount, planned: trainingDays.length }
-        : undefined
+      const previous = {
+        lifts: userData.lifts,
+        ...(nextWeek ? { workouts: compactPlan(userData.plan).workoutPlan, completed: doneCount, planned: trainingDays.length } : {}),
+      }
       const newPlan = await generateFitnessPlan(userData, locale, previous)
       // Generation takes a while: merge into the data as it is now, not as it was when the request started.
       setUserData((current: any) => startNewWeek(current, newPlan))
@@ -76,6 +77,22 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Asks the coach for another exercise in place of the open one; only that day changes.
+  const swapExercise = async (): Promise<boolean> => {
+    if (!openExercise) return false
+    const { exercise, day } = openExercise
+    const result = await chatWithAI({
+      message: `In the workout plan, replace the exercise "${exercise.name}" on day ${day} with a different exercise for the same muscles that fits my equipment and limitations. Change only that exercise and keep the other exercises of that day exactly as they are.`,
+      userData,
+      locale,
+    })
+    const workoutDays = (result.changes?.workoutDays || []).filter((item) => item.day === day)
+    if (workoutDays.length === 0) return false
+    setUserData((current: any) => clearExerciseMarks({ ...current, plan: applyPlanChanges(current.plan, { workoutDays }).plan }, [day]))
+    setOpenExercise(null)
+    return true
   }
 
   const exportPDF = async () => {
@@ -425,7 +442,10 @@ export default function Dashboard() {
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between gap-4 text-xs text-gray-600">
-                                    <span>{t('workoutPlan.rest', { seconds: exercise.restSeconds })}</span>
+                                    <span>
+                                      {t('workoutPlan.rest', { seconds: exercise.restSeconds })}
+                                      {exercise.weight && <> · {t('workoutPlan.weight', { weight: exercise.weight })}</>}
+                                    </span>
                                     <span className="inline-flex items-center gap-1 font-medium text-fitness-orange">
                                       <PlayCircle className="w-4 h-4" />
                                       {t('workoutPlan.howTo')}
@@ -461,6 +481,7 @@ export default function Dashboard() {
         <ExerciseModal
           exercise={openExercise.exercise}
           onClose={closeExercise}
+          onSwap={swapExercise}
           onAllSetsDone={() =>
             setUserData((current: any) => setExerciseDone(current, openExercise.day, openExercise.index, true, openExercise.count))
           }

@@ -7,6 +7,7 @@ export interface PlanExercise {
   name: string
   sets: string
   reps: string
+  weight?: string // recommended load, free text ("2 × 10 kg", "bodyweight")
   notes?: string
   rest?: number // seconds
   demo?: string // key of a built-in demo from lib/exercises
@@ -64,6 +65,7 @@ export interface ExerciseView {
   reps: string
   restSeconds: number
   notes: string
+  weight: string
   demo?: string
 }
 
@@ -156,6 +158,7 @@ export function getWorkoutDays(workoutPlan: any): WorkoutDayView[] {
       reps: text(ex?.reps, 40) || '10',
       restSeconds: Number(ex?.rest) > 0 ? Number(ex.rest) : DEFAULT_REST,
       notes: ex?.notes || '',
+      weight: text(ex?.weight, 60),
       demo: ex?.demo || undefined,
     }))
     // About 45 seconds of work per set plus the rest, with a 5-minute warm-up.
@@ -192,6 +195,7 @@ export function compactPlan(plan: any) {
         sets: ex.sets,
         reps: ex.reps,
         rest: ex.restSeconds,
+        ...(ex.weight ? { weight: ex.weight } : {}),
         ...(ex.notes ? { notes: ex.notes } : {}),
         ...(ex.demo ? { demo: ex.demo } : {}),
       })),
@@ -234,6 +238,7 @@ function cleanExercise(raw: any): PlanExercise | null {
     sets: text(raw?.sets, 20) || '3',
     reps: text(raw?.reps, 40) || '10',
     notes: text(raw?.notes, 300),
+    ...(text(raw?.weight, 60) ? { weight: text(raw?.weight, 60) } : {}),
     ...(rest > 0 && rest <= 600 ? { rest: Math.round(rest) } : {}),
     ...(DEMO_KEYS.includes(demo) ? { demo } : {}),
   }

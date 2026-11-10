@@ -2,11 +2,12 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, ExternalLink, Loader, RotateCcw, Sparkles, Timer, Wind, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, Check, ChevronLeft, ChevronRight, ExternalLink, Loader, RotateCcw, Sparkles, Timer, Wind, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { langIndex, matchDemo } from '@/lib/exercises'
 import { checkAIConfigured, explainExercise, getCachedGuide, type ExerciseGuide } from '@/lib/gemini'
 import { setsOf, type ExerciseView } from '@/lib/plan'
+import { useUser } from '@/context/UserContext'
 import ExerciseFigure from './ExerciseFigure'
 
 interface ExerciseModalProps {
@@ -14,10 +15,12 @@ interface ExerciseModalProps {
   onClose: () => void
   /** Called when the last set is ticked off in the tracker. */
   onAllSetsDone?: () => void
+  /** Replaces this exercise with another one; resolves to false when it could not be done. */
+  onSwap?: () => Promise<boolean>
 }
 
 /** "How to do it" for one exercise: animated demo, technique notes, an AI guide, and a set/rest tracker. */
-export default function ExerciseModal({ exercise, onClose, onAllSetsDone }: ExerciseModalProps) {
+export default function ExerciseModal({ exercise, onClose, onAllSetsDone, onSwap }: ExerciseModalProps) {
   const t = useTranslations('exercise')
   const tWorkout = useTranslations('dashboard.workoutPlan')
   const locale = useLocale()
@@ -30,6 +33,20 @@ export default function ExerciseModal({ exercise, onClose, onAllSetsDone }: Exer
   const [guideState, setGuideState] = useState<'idle' | 'loading' | 'error'>('idle')
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null) // null while the server is being asked
   const [step, setStep] = useState(0)
+  const [swapState, setSwapState] = useState<'idle' | 'loading' | 'error'>('idle')
+
+  // The load the user actually works with, remembered per exercise name.
+  const { userData, setUserData } = useUser()
+  const liftKey = exercise.name.trim().toLowerCase()
+  const myWeight: string = userData?.lifts?.[liftKey] || ''
+  const saveMyWeight = (value: string) =>
+    setUserData((current: any) => ({ ...current, lifts: { ...current?.lifts, [liftKey]: value.slice(0, 30) } }))
+
+  const swap = async () => {
+    if (!onSwap) return
+    setSwapState('loading')
+    if (!(await onSwap())) setSwapState('error') // on success the dialog is closed by the parent
+  }
 
   const totalSets = setsOf(exercise.sets)
   const [doneSets, setDoneSets] = useState(0)
@@ -136,6 +153,7 @@ export default function ExerciseModal({ exercise, onClose, onAllSetsDone }: Exer
             <h2 className="text-xl font-bold break-words sm:text-2xl">{exercise.name}</h2>
             <p className="text-sm text-gray-600">
               {tWorkout('setsReps', { sets: exercise.sets, reps: exercise.reps })} · {tWorkout('rest', { seconds: exercise.restSeconds })}
+              {exercise.weight && <> · {tWorkout('weight', { weight: exercise.weight })}</>}
             </p>
           </div>
           <button
@@ -297,6 +315,33 @@ export default function ExerciseModal({ exercise, onClose, onAllSetsDone }: Exer
               <ExternalLink className="h-4 w-4" />
               {t('watchVideo')}
             </a>
+
+            <label className="block rounded-xl border border-gray-200 p-4">
+              <span className="mb-2 block font-semibold">{t('myWeight')}</span>
+              <input
+                value={myWeight}
+                onChange={(e) => saveMyWeight(e.target.value)}
+                maxLength={30}
+                placeholder={exercise.weight || t('myWeightPlaceholder')}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-fitness-orange"
+              />
+              <span className="mt-2 block text-xs text-gray-500">{t('myWeightHint')}</span>
+            </label>
+
+            {onSwap && (
+              <div>
+                <button
+                  type="button"
+                  onClick={swap}
+                  disabled={swapState === 'loading'}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                >
+                  {swapState === 'loading' ? <Loader className="h-4 w-4 animate-spin" /> : <ArrowLeftRight className="h-4 w-4" />}
+                  {t('swap')}
+                </button>
+                {swapState === 'error' && <p className="mt-2 text-sm text-red-600">{t('swapError')}</p>}
+              </div>
+            )}
 
             <div className="rounded-xl border border-gray-200 p-4">
               <div className="mb-3 flex items-center justify-between">

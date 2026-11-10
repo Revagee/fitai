@@ -9,7 +9,8 @@ import { User, Edit2, Save, X, Calendar, Target, Activity, UtensilsCrossed, Dumb
 import Card from './ui/Card'
 import Button from './ui/Button'
 import Navbar from './ui/Navbar'
-import { ACTIVITY_KEYS, DIET_OPTIONS, EQUIPMENT_OPTIONS, GOAL_KEYS } from '@/lib/options'
+import { ACTIVITY_KEYS, DIET_OPTIONS, EQUIPMENT_OPTIONS, GOAL_KEYS, addDiet, customDiets } from '@/lib/options'
+import TagInput from './ui/TagInput'
 
 export default function Profile() {
   const { userData, setUserData, loading } = useUser()
@@ -85,6 +86,8 @@ export default function Profile() {
       className="w-full h-24 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fitness-orange focus:border-transparent resize-none dark:bg-gray-700 dark:border-gray-600"
     />
   )
+
+  const setDiets = (dietPreferences: string[]) => setEditedData({ ...editedData, dietPreferences })
 
   const toggleDiet = (value: string) => {
     const current: string[] = editedData.dietPreferences || []
@@ -364,6 +367,17 @@ export default function Profile() {
                           </span>
                         ))}
                   </div>
+                  {isEditing && (
+                    <div className="mt-3">
+                      <TagInput
+                        values={customDiets(editedData.dietPreferences)}
+                        onAdd={(value) => setDiets(addDiet(editedData.dietPreferences, value))}
+                        onRemove={(value) => setDiets((editedData.dietPreferences || []).filter((item: string) => item !== value))}
+                        placeholder={tOnboarding('preferences.customDietPlaceholder')}
+                        addLabel={tOnboarding('preferences.addDiet')}
+                      />
+                    </div>
+                  )}
                 </div>
                 {(isEditing || userData.allergies) && (
                   <div>

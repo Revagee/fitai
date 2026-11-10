@@ -132,7 +132,8 @@ export function generateDemoPlan(userData: any, locale: string = 'en') {
 
   const allergyText = String(userData.allergies || '')
   const blocked = (Object.keys(ALLERGEN_PATTERNS) as Allergen[]).filter((a) => ALLERGEN_PATTERNS[a].test(allergyText))
-  const diets = ((userData.dietPreferences || []) as string[]).filter((d) => d !== 'No Preference') as Diet[]
+  // Only the preset diets can filter the templates; the user's own preferences need the AI.
+  const diets = ((userData.dietPreferences || []) as string[]).filter((d) => FOODS.some((f) => f.diets.includes(d as Diet))) as Diet[]
   const suitable = FOODS.filter(
     (f) => diets.every((d) => f.diets.includes(d)) && !f.allergens.some((a) => blocked.includes(a))
   )
