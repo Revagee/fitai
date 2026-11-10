@@ -97,6 +97,22 @@ const weeklyMealsOf = (mealPlan: any, fillWeek: boolean): any[] => {
   return []
 }
 
+// A day shows its own totals when its meals carry numbers; otherwise the plan-wide daily target.
+const withDayTotals = (day: MealDayView): MealDayView => {
+  const sum = (pick: (meal: MealView) => unknown) =>
+    day.meals.reduce((total, meal) => total + (parseFloat(String(pick(meal))) || 0), 0)
+  const calories = sum((meal) => meal.calories)
+  if (!calories) return day
+  const grams = (value: number, fallback: string) => (value ? `${Math.round(value)}g` : fallback)
+  return {
+    ...day,
+    totalCalories: Math.round(calories),
+    totalProtein: grams(sum((meal) => meal.protein), day.totalProtein),
+    totalCarbs: grams(sum((meal) => meal.carbs), day.totalCarbs),
+    totalFats: grams(sum((meal) => meal.fats), day.totalFats),
+  }
+}
+
 export function getMealDays(mealPlan: any, fillWeek = false): MealDayView[] {
   const date = new Date().toISOString()
   return weeklyMealsOf(mealPlan, fillWeek).map((day, dayIndex) => ({
@@ -124,7 +140,7 @@ export function getMealDays(mealPlan: any, fillWeek = false): MealDayView[] {
         instructions: meal?.instructions,
       }
     }),
-  }))
+  })).map(withDayTotals)
 }
 
 const setCount = (sets: unknown) => Math.min(Math.max(parseInt(String(sets), 10) || 3, 1), 10)

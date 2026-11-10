@@ -76,6 +76,27 @@ export default function Profile() {
     return bmi.toFixed(1)
   }
 
+  const noteField = (field: 'allergies' | 'trainingNotes', placeholder: string) => (
+    <textarea
+      value={editedData[field] || ''}
+      onChange={(e) => setEditedData({ ...editedData, [field]: e.target.value })}
+      maxLength={500}
+      placeholder={placeholder}
+      className="w-full h-24 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fitness-orange focus:border-transparent resize-none dark:bg-gray-700 dark:border-gray-600"
+    />
+  )
+
+  const toggleDiet = (value: string) => {
+    const current: string[] = editedData.dietPreferences || []
+    // "No Preference" and a specific diet exclude each other.
+    const next = current.includes(value)
+      ? current.filter((item) => item !== value)
+      : value === 'No Preference'
+      ? [value]
+      : [...current.filter((item) => item !== 'No Preference'), value]
+    setEditedData({ ...editedData, dietPreferences: next })
+  }
+
   const bmi = calculateBMI()
   const getBMICategory = (bmi: number) => {
     if (bmi < 18.5) return t('bmiUnderweight')
@@ -290,6 +311,18 @@ export default function Profile() {
                     ))}
                   </div>
                 </div>
+                {(isEditing || userData.trainingNotes) && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {t('trainingNotes')}
+                    </label>
+                    {isEditing ? (
+                      noteField('trainingNotes', tOnboarding('goals.trainingNotesPlaceholder'))
+                    ) : (
+                      <p className="text-gray-900 dark:text-gray-100">{userData.trainingNotes}</p>
+                    )}
+                  </div>
+                )}
               </div>
             </Card>
 
@@ -305,24 +338,46 @@ export default function Profile() {
                     {t('preferences')}
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {userData.dietPreferences?.map((item: string, index: number) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm"
-                      >
-                        {optionLabel(DIET_OPTIONS, item)}
-                      </span>
-                    ))}
+                    {isEditing
+                      ? DIET_OPTIONS.map(({ value }) => {
+                          const selected = (editedData.dietPreferences || []).includes(value)
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => toggleDiet(value)}
+                              aria-pressed={selected}
+                              className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                                selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 text-gray-700 hover:border-blue-400'
+                              }`}
+                            >
+                              {optionLabel(DIET_OPTIONS, value)}
+                            </button>
+                          )
+                        })
+                      : userData.dietPreferences?.map((item: string, index: number) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm"
+                          >
+                            {optionLabel(DIET_OPTIONS, item)}
+                          </span>
+                        ))}
                   </div>
                 </div>
-                {userData.allergies && (
+                {(isEditing || userData.allergies) && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       {t('allergies')}
                     </label>
-                    <p className="text-gray-900 dark:text-gray-100">{userData.allergies}</p>
+                    {isEditing ? (
+                      noteField('allergies', tOnboarding('preferences.allergiesPlaceholder'))
+                    ) : (
+                      <p className="text-gray-900 dark:text-gray-100">{userData.allergies}</p>
+                    )}
                   </div>
                 )}
+                {isEditing && <p className="text-sm text-gray-500">{t('planHint')}</p>}
               </div>
             </Card>
           </div>

@@ -17,6 +17,8 @@ import {
   PlayCircle,
   CheckCircle2,
   Circle,
+  Repeat,
+  Sparkles,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
@@ -26,10 +28,11 @@ import Navbar from './ui/Navbar'
 import AICoach from './AICoach'
 import ExerciseModal from './ExerciseModal'
 import { useUser } from '@/context/UserContext'
-import { calculateUserMetrics, toDateKey } from '@/lib/utils'
+import { calculateUserMetrics } from '@/lib/utils'
 import { exportMealPlanPDF, exportWorkoutPlanPDF } from '@/lib/pdfExport'
 import { generateFitnessPlan } from '@/lib/gemini'
-import { getMealDays, getWorkoutDays, mealKind, type ExerciseView } from '@/lib/plan'
+import { compactPlan, getMealDays, getWorkoutDays, mealKind, type ExerciseView } from '@/lib/plan'
+import { WEEK_DAYS, daysInto, setDayDone, setExerciseDone, startNewWeek, weekOf } from '@/lib/week'
 
 type Tab = 'meal' | 'workout' | 'coach'
 
@@ -40,24 +43,32 @@ export default function Dashboard() {
   const { userData, setUserData } = useUser()
   const [activeTab, setActiveTab] = useState<Tab>('meal')
   const [loading, setLoading] = useState(false)
-  const [openExercise, setOpenExercise] = useState<ExerciseView | null>(null)
+  const [openExercise, setOpenExercise] = useState<{ exercise: ExerciseView; day: number; index: number; count: number } | null>(null)
   const closeExercise = useCallback(() => setOpenExercise(null), [])
 
   const metrics = useMemo(() => (userData ? calculateUserMetrics(userData) : null), [userData])
   const mealPlans = useMemo(() => getMealDays(userData?.plan?.mealPlan), [userData?.plan?.mealPlan])
   const workoutPlans = useMemo(() => getWorkoutDays(userData?.plan?.workoutPlan), [userData?.plan?.workoutPlan])
 
-  const today = toDateKey()
-  const doneToday: number[] = userData?.workoutLog?.[today] || []
+  const week = weekOf(userData)
+  const trainingDays = workoutPlans.filter((plan) => plan.exercises.length > 0)
+  const doneCount = trainingDays.filter((plan) => week.doneDays[plan.day]).length
+  const weekDay = daysInto(week) + 1
+  const weekOver = weekDay > WEEK_DAYS
+  const weekFinished = trainingDays.length > 0 && doneCount === trainingDays.length
 
-  const regeneratePlans = async () => {
+  // `nextWeek`: the new plan builds on the one just finished instead of starting from scratch.
+  const regeneratePlans = async (nextWeek = false) => {
     if (!userData) return
 
     setLoading(true)
     try {
-      const newPlan = await generateFitnessPlan(userData, locale)
-      // Generation takes minutes: merge into the data as it is now, not as it was when the request started.
-      setUserData((current: any) => ({ ...current, plan: newPlan, createdAt: Date.now() }))
+      const previous = nextWeek
+        ? { workouts: compactPlan(userData.plan).workoutPlan, completed: doneCount, planned: trainingDays.length }
+        : undefined
+      const newPlan = await generateFitnessPlan(userData, locale, previous)
+      // Generation takes a while: merge into the data as it is now, not as it was when the request started.
+      setUserData((current: any) => startNewWeek(current, newPlan))
     } catch (error) {
       console.error('Error regenerating plan:', error)
       alert(t('actions.regenerateError'))
@@ -79,25 +90,6 @@ export default function Dashboard() {
       console.error('Error exporting PDF:', error)
       alert(t('actions.noDataToExport'))
     }
-  }
-
-  // Marks a workout as done today and keeps the progress log (workouts per day) in step with it.
-  const toggleWorkoutDone = (day: number) => {
-    setUserData((current: any) => {
-      const done: number[] = current?.workoutLog?.[today] || []
-      const wasDone = done.includes(day)
-      const progress: any[] = [...(current?.progress || [])]
-      const index = progress.findIndex((entry) => entry.date === today)
-      const workouts = Math.max(0, (progress[index]?.workouts || 0) + (wasDone ? -1 : 1))
-      if (index >= 0) progress[index] = { ...progress[index], workouts }
-      else if (!wasDone) progress.push({ date: today, workouts })
-      progress.sort((a, b) => String(a.date).localeCompare(String(b.date)))
-      return {
-        ...current,
-        progress,
-        workoutLog: { [today]: wasDone ? done.filter((item) => item !== day) : [...done, day] },
-      }
-    })
   }
 
   const tabClass = (tab: Tab) =>
@@ -201,6 +193,41 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Training week */}
+        {trainingDays.length > 0 && (
+          <Card className={`mb-8 ${weekOver || weekFinished ? 'border-fitness-orange bg-orange-50' : ''}`}>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-[200px] flex-1">
+                <h2 className="text-lg font-bold">
+                  {weekOver ? t('week.overTitle') : weekFinished ? t('week.finishedTitle') : t('week.title', { day: weekDay })}
+                </h2>
+                <p className="text-sm text-gray-600">
+                  {t('week.done', { done: doneCount, total: trainingDays.length })}
+                  {(weekOver || weekFinished) && ` ${t('week.nextHint')}`}
+                </p>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-200">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-fitness-orange to-fitness-purple transition-all"
+                    style={{ width: `${(doneCount / trainingDays.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+              {(weekOver || weekFinished) && (
+                <div className="flex flex-wrap gap-3">
+                  <Button onClick={() => regeneratePlans(true)} isLoading={loading}>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {t('week.newPlan')}
+                  </Button>
+                  <Button variant="outline" disabled={loading} onClick={() => setUserData((current: any) => startNewWeek(current))}>
+                    <Repeat className="w-4 h-4 mr-2" />
+                    {t('week.repeat')}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
         {/* Tabs */}
         <div className="mb-6">
           <div className="flex gap-2 sm:gap-4 border-b border-gray-200 overflow-x-auto">
@@ -223,7 +250,7 @@ export default function Dashboard() {
         <div className="flex flex-wrap gap-4 mb-6">
           <Button
             variant="outline"
-            onClick={regeneratePlans}
+            onClick={() => regeneratePlans()}
             isLoading={loading}
           >
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -323,7 +350,8 @@ export default function Dashboard() {
                     {t('workoutPlan.tapHint')}
                   </p>
                   {workoutPlans.map((plan) => {
-                    const done = doneToday.includes(plan.day)
+                    const done = Boolean(week.doneDays[plan.day])
+                    const doneExercises = week.doneExercises[plan.day] || []
                     return (
                       <Card key={plan.id} className={done ? 'border-green-300' : undefined}>
                         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -340,7 +368,7 @@ export default function Dashboard() {
                               </span>
                               <button
                                 type="button"
-                                onClick={() => toggleWorkoutDone(plan.day)}
+                                onClick={() => setUserData((current: any) => setDayDone(current, plan.day, !done, plan.exercises.length))}
                                 aria-pressed={done}
                                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
                                   done
@@ -358,33 +386,57 @@ export default function Dashboard() {
                           <p className="text-sm text-gray-600">{t('restDay')}</p>
                         )}
                         <div className="space-y-3">
-                          {plan.exercises.map((exercise) => (
-                            <button
-                              key={exercise.id}
-                              type="button"
-                              onClick={() => setOpenExercise(exercise)}
-                              className="group block w-full text-left p-4 rounded-lg bg-gray-50 border border-gray-200 hover:border-fitness-orange hover:bg-orange-50/50 transition-colors focus:outline-none focus:ring-2 focus:ring-fitness-orange"
-                            >
-                              <div className="flex items-center justify-between gap-3 mb-2">
-                                <h4 className="font-semibold">{exercise.name}</h4>
-                                <span className="text-sm text-gray-600 text-right">
-                                  {t('workoutPlan.setsReps', { sets: exercise.sets, reps: exercise.reps })}
-                                </span>
+                          {plan.exercises.map((exercise, index) => {
+                            const exerciseDone = done || doneExercises.includes(index)
+                            return (
+                              <div
+                                key={exercise.id}
+                                className={`flex items-stretch rounded-lg border transition-colors ${
+                                  exerciseDone ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50 hover:border-fitness-orange'
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setUserData((current: any) => setExerciseDone(current, plan.day, index, !exerciseDone, plan.exercises.length))
+                                  }
+                                  aria-pressed={exerciseDone}
+                                  aria-label={`${t('workoutPlan.markDone')}: ${exercise.name}`}
+                                  className="flex items-center pl-4 pr-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fitness-green rounded-l-lg"
+                                >
+                                  {exerciseDone ? (
+                                    <CheckCircle2 className="w-6 h-6 text-fitness-green" />
+                                  ) : (
+                                    <Circle className="w-6 h-6 text-gray-400 hover:text-fitness-green" />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenExercise({ exercise, day: plan.day, index, count: plan.exercises.length })}
+                                  className="min-w-0 flex-1 text-left p-4 pl-3 rounded-r-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-fitness-orange"
+                                >
+                                  <div className="flex items-center justify-between gap-3 mb-2">
+                                    <h4 className={`font-semibold ${exerciseDone ? 'text-gray-500 line-through' : ''}`}>{exercise.name}</h4>
+                                    <span className="text-sm text-gray-600 text-right">
+                                      {t('workoutPlan.setsReps', { sets: exercise.sets, reps: exercise.reps })}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-4 text-xs text-gray-600">
+                                    <span>{t('workoutPlan.rest', { seconds: exercise.restSeconds })}</span>
+                                    <span className="inline-flex items-center gap-1 font-medium text-fitness-orange">
+                                      <PlayCircle className="w-4 h-4" />
+                                      {t('workoutPlan.howTo')}
+                                    </span>
+                                  </div>
+                                  {exercise.notes && (
+                                    <p className="text-xs text-gray-600 mt-2 italic">
+                                      {exercise.notes}
+                                    </p>
+                                  )}
+                                </button>
                               </div>
-                              <div className="flex items-center justify-between gap-4 text-xs text-gray-600">
-                                <span>{t('workoutPlan.rest', { seconds: exercise.restSeconds })}</span>
-                                <span className="inline-flex items-center gap-1 font-medium text-fitness-orange">
-                                  <PlayCircle className="w-4 h-4" />
-                                  {t('workoutPlan.howTo')}
-                                </span>
-                              </div>
-                              {exercise.notes && (
-                                <p className="text-xs text-gray-600 mt-2 italic">
-                                  {exercise.notes}
-                                </p>
-                              )}
-                            </button>
-                          ))}
+                            )
+                          })}
                         </div>
                       </Card>
                     )
@@ -402,7 +454,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {openExercise && <ExerciseModal exercise={openExercise} onClose={closeExercise} />}
+      {openExercise && (
+        <ExerciseModal
+          exercise={openExercise.exercise}
+          onClose={closeExercise}
+          onAllSetsDone={() =>
+            setUserData((current: any) => setExerciseDone(current, openExercise.day, openExercise.index, true, openExercise.count))
+          }
+        />
+      )}
     </div>
   )
 }

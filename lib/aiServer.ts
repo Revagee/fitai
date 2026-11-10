@@ -13,13 +13,15 @@ const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_
 export const aiConfigured = Boolean(apiKey)
 const genAI = new GoogleGenerativeAI(apiKey || '')
 
-const PRIMARY_MODEL = process.env.GEMINI_MODEL || process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-flash-latest'
+// gemini-flash-latest / gemini-3.8-flash were measured answering 429 or hanging on a free key,
+// so the default is the previous full-size model, which answers in a few seconds.
+const PRIMARY_MODEL = process.env.GEMINI_MODEL || process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-3.5-flash'
 // Safety net: during demand spikes the full-size models answer 503 or hang for minutes,
 // while the lite model keeps replying within a couple of seconds.
 // Two of them, because even a lite model occasionally answers 503 for a moment.
 const FAST_MODELS = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite']
 const unique = (models: string[]) => Array.from(new Set(models))
-const PLAN_MODELS = unique([PRIMARY_MODEL, 'gemini-3.8-flash', ...FAST_MODELS])
+const PLAN_MODELS = unique([PRIMARY_MODEL, ...FAST_MODELS])
 const CHAT_MODELS = unique([PRIMARY_MODEL, ...FAST_MODELS])
 // Leaves room for the fast model to answer inside the route's 5-minute limit if the main one hangs.
 const PLAN_TIMEOUT_MS = 4 * 60 * 1000
@@ -33,10 +35,11 @@ const coolingUntil: Record<string, number> = {}
  * Tries each model in turn. Overload (503), rate limit (429) and timeouts move on to the next model;
  * the long plan request also retries once before moving on.
  */
-async function generateWithFallback(prompt: string, interactive: boolean) {
+async function generateWithFallback(prompt: string, interactive: boolean, preferFast = false) {
   const now = Date.now()
   const cooling = (model: string) => (coolingUntil[model] || 0) > now
-  const models = interactive ? CHAT_MODELS : PLAN_MODELS
+  // A technique guide is simple and shown in an open dialog, so speed matters more than the bigger model.
+  const models = preferFast ? unique([...FAST_MODELS, PRIMARY_MODEL]) : interactive ? CHAT_MODELS : PLAN_MODELS
   const ordered = [...models.filter((model) => !cooling(model)), ...models.filter(cooling)]
   const timeout = interactive ? CHAT_TIMEOUT_MS : PLAN_TIMEOUT_MS
   const attempts = interactive ? 1 : 2
@@ -44,6 +47,9 @@ async function generateWithFallback(prompt: string, interactive: boolean) {
 
   let lastError: unknown
   let timedOut = false
+  // Overload usually clears within seconds, so a chat request gets a second pass over the models.
+  for (let pass = 0; pass < (interactive ? 2 : 1); pass++) {
+  if (pass > 0) await new Promise((resolve) => setTimeout(resolve, 2000))
   for (const model of ordered) {
     // After a timeout the user has waited long enough: go straight to the fast models.
     if (timedOut && !FAST_MODELS.includes(model)) continue
@@ -60,6 +66,7 @@ async function generateWithFallback(prompt: string, interactive: boolean) {
         if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 1500))
       }
     }
+  }
   }
   throw lastError
 }
@@ -87,7 +94,8 @@ const line = (value: unknown, max = 80) =>
   value == null ? '' : String(value).replace(/\s+/g, ' ').trim().slice(0, max)
 const list = (value: unknown) => (Array.isArray(value) ? value : []).slice(0, 12).map((item) => line(item, 40)).filter(Boolean).join(', ')
 
-export async function planFromAI(userData: any, locale: string) {
+export async function planFromAI(userData: any, locale: string, previous?: any) {
+  const lastWeek = previous && typeof previous === 'object' ? JSON.stringify(previous.workouts ?? null).slice(0, 6000) : ''
   const prompt = `
       You are an elite fitness coach. Create a JSON fitness plan for this user.
       Write every text value (focus, exercise and meal names, options, notes, tips) in ${LANGUAGE_NAMES[locale] || 'English'}. Keep the JSON keys in English.
@@ -102,8 +110,13 @@ export async function planFromAI(userData: any, locale: string) {
       - Goal: ${line(userData?.fitnessGoal)}
       - Frequency: ${line(userData?.trainingFrequency)} days/week
       - Equipment: ${list(userData?.equipmentAccess)}
+      - Training wishes and limitations (in the user's own words; follow them): ${line(userData?.trainingNotes, 500) || 'none'}
       - Diet: ${list(userData?.dietPreferences)}
       - Allergies: ${line(userData?.allergies, 300)}
+
+      ${lastWeek ? `This plan is for the NEXT week. Last week the user completed ${line(previous.completed, 3)} of ${line(previous.planned, 3)} planned workouts:
+      ${lastWeek}
+      Build on it: if most workouts were done, progress modestly (a little more reps, sets or a harder variation) and swap one or two exercises per day for variety; if few were done, make the week easier to stick to. Vary the meals compared to a typical repeat.` : ''}
 
       REQUIRED JSON STRUCTURE (Create a 7-day plan):
       {
@@ -138,7 +151,10 @@ export async function planFromAI(userData: any, locale: string) {
       }
 
       For every exercise: "rest" is the rest between sets in seconds, and "demo" is the movement pattern
-      it is closest to, one of: ${DEMO_KEYS.join(', ')} (use "" when none fits).
+      it matches, one of: ${DEMO_KEYS.join(', ')}. Use "" unless the exercise is that movement or a close variation of it.
+
+      Days do not need the same calories: training days may be higher and rest days lower,
+      as long as the weekly average stays close to "calories". Each meal's numbers must be realistic for that meal.
     `
 
   // JSON-режим гарантирует, что ответ будет в правильном формате
@@ -171,6 +187,7 @@ export async function chatFromAI(options: {
         `Activity: ${line(userData.activityLevel) || 'N/A'}`,
         `Training days per week: ${line(userData.trainingFrequency) || 'N/A'}`,
         `Equipment: ${list(userData.equipmentAccess) || 'N/A'}`,
+        `Training wishes and limitations: ${line(userData.trainingNotes, 500) || 'none'}`,
         `Diet: ${list(userData.dietPreferences) || 'N/A'}`,
         `Allergies: ${line(userData.allergies, 300) || 'none'}`,
       ].join('; ')
@@ -214,9 +231,9 @@ Rules for "changes":
   }
 - Each day you include REPLACES that whole day, so list every exercise or meal of that day after the change, copying the untouched ones exactly as they are. Do not include days that stay the same.
 - A rest day is a workout day with an empty "exercises" list.
-- "demo" is the movement pattern closest to the exercise, one of: ${DEMO_KEYS.join(', ')} (use "" when none fits).
+- "demo" is the movement pattern the exercise matches, one of: ${DEMO_KEYS.join(', ')}. Use "" unless the exercise is that movement or a close variation of it.
 - Write exercise names, meal names, options, focus and notes in the same language the current plan uses.
-- Respect the user's equipment, diet and allergies, and keep the day's calories close to the target unless the user asks otherwise.
+- Respect the user's equipment, training wishes, diet and allergies. Days may differ in calories (more on training days, less on rest days) as long as the weekly average stays close to the target, unless the user asks otherwise.
 - If the request is unclear (for example, which day), ask a short question in "reply" and keep "changes" null.`
 
   const raw = await generateWithFallback(prompt, true)
@@ -249,7 +266,7 @@ Answer with a single JSON object:
   "breathing": "when to inhale and when to exhale"
 }`
 
-  const parsed = parseJson(await generateWithFallback(prompt, true))
+  const parsed = parseJson(await generateWithFallback(prompt, true, true))
   const guide: ExerciseGuide = {
     muscles: strings(parsed?.muscles, 5),
     steps: strings(parsed?.steps, 8),

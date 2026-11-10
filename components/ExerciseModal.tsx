@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertTriangle, Check, ExternalLink, Loader, RotateCcw, Sparkles, Timer, Wind, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, ExternalLink, Loader, RotateCcw, Sparkles, Timer, Wind, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { findDemo, langIndex } from '@/lib/exercises'
+import { langIndex, matchDemo } from '@/lib/exercises'
 import { checkAIConfigured, explainExercise, getCachedGuide, type ExerciseGuide } from '@/lib/gemini'
 import { setsOf, type ExerciseView } from '@/lib/plan'
 import ExerciseFigure from './ExerciseFigure'
@@ -12,31 +12,49 @@ import ExerciseFigure from './ExerciseFigure'
 interface ExerciseModalProps {
   exercise: ExerciseView
   onClose: () => void
+  /** Called when the last set is ticked off in the tracker. */
+  onAllSetsDone?: () => void
 }
 
-/** "How to do it" for one exercise: animated demo, technique notes, an optional AI guide, and a set/rest tracker. */
-export default function ExerciseModal({ exercise, onClose }: ExerciseModalProps) {
+/** "How to do it" for one exercise: animated demo, technique notes, an AI guide, and a set/rest tracker. */
+export default function ExerciseModal({ exercise, onClose, onAllSetsDone }: ExerciseModalProps) {
   const t = useTranslations('exercise')
   const tWorkout = useTranslations('dashboard.workoutPlan')
   const locale = useLocale()
   const lang = langIndex(locale)
-  const demo = findDemo(exercise.name, exercise.demo)
+  const match = matchDemo(exercise.name, exercise.demo)
+  const demo = match?.demo
+  const exact = Boolean(match?.exact)
 
   const [guide, setGuide] = useState<ExerciseGuide | null>(() => getCachedGuide(exercise.name, locale))
   const [guideState, setGuideState] = useState<'idle' | 'loading' | 'error'>('idle')
-  const [aiAvailable, setAiAvailable] = useState(false)
-
-  useEffect(() => {
-    let open = true
-    checkAIConfigured().then((available) => open && setAiAvailable(available))
-    return () => {
-      open = false
-    }
-  }, [])
+  const [aiAvailable, setAiAvailable] = useState<boolean | null>(null) // null while the server is being asked
+  const [step, setStep] = useState(0)
 
   const totalSets = setsOf(exercise.sets)
   const [doneSets, setDoneSets] = useState(0)
   const [restLeft, setRestLeft] = useState(0)
+
+  const askAI = useCallback(async () => {
+    setGuideState('loading')
+    const result = await explainExercise(exercise.name, locale)
+    setGuide(result)
+    setGuideState(result ? 'idle' : 'error')
+  }, [exercise.name, locale])
+
+  useEffect(() => {
+    let open = true
+    checkAIConfigured().then((available) => {
+      if (!open) return
+      setAiAvailable(available)
+      // The built-in notes describe the demo's basic movement, which is often not quite this exercise
+      // (a hanging leg raise is not a lying one), so the technique is written for the exercise itself.
+      if (available && !getCachedGuide(exercise.name, locale)) askAI()
+    })
+    return () => {
+      open = false
+    }
+  }, [askAI, exercise.name, locale])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -55,17 +73,11 @@ export default function ExerciseModal({ exercise, onClose }: ExerciseModalProps)
     return () => clearTimeout(timer)
   }, [restLeft])
 
-  const askAI = async () => {
-    setGuideState('loading')
-    const result = await explainExercise(exercise.name, locale)
-    setGuide(result)
-    setGuideState(result ? 'idle' : 'error')
-  }
-
   const completeSet = () => {
     const next = Math.min(doneSets + 1, totalSets)
     setDoneSets(next)
     setRestLeft(next < totalSets ? exercise.restSeconds : 0)
+    if (next === totalSets) onAllSetsDone?.()
   }
 
   const resetSets = () => {
@@ -74,31 +86,35 @@ export default function ExerciseModal({ exercise, onClose }: ExerciseModalProps)
   }
 
   const videoUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${exercise.name} ${t('videoQuery')}`)}`
-  const steps = guide?.steps || demo?.steps.map((step) => step[lang]) || []
-  const muscles = guide?.muscles.join(', ') || demo?.muscles[lang] || ''
-  const mistakes = guide?.mistakes.length ? guide.mistakes : demo ? [demo.mistake[lang]] : []
+  // Built-in notes fill in while the guide loads (when the demo is this very movement) and when AI is unavailable.
+  const builtIn = demo && (exact || aiAvailable === false || guideState === 'error') ? demo : null
+  const steps = guide?.steps || builtIn?.steps.map((item) => item[lang]) || []
+  const muscles = guide?.muscles.join(', ') || builtIn?.muscles[lang] || ''
+  const mistakes = guide?.mistakes.length ? guide.mistakes : builtIn ? [builtIn.mistake[lang]] : []
+  const waiting = guideState === 'loading' || (aiAvailable === null && !exact && !guide)
   const resting = restLeft > 0
   const finished = doneSets >= totalSets
+  const current = Math.min(step, Math.max(steps.length - 1, 0))
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
+        initial={{ y: 24, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={exercise.name}
-        className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+        className="h-[100dvh] w-full max-w-4xl overflow-y-auto bg-white shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
       >
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-gray-200 bg-white px-6 py-4">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
           <div className="min-w-0">
-            <h2 className="text-2xl font-bold break-words">{exercise.name}</h2>
+            <h2 className="text-xl font-bold break-words sm:text-2xl">{exercise.name}</h2>
             <p className="text-sm text-gray-600">
               {tWorkout('setsReps', { sets: exercise.sets, reps: exercise.reps })} · {tWorkout('rest', { seconds: exercise.restSeconds })}
             </p>
@@ -113,25 +129,151 @@ export default function ExerciseModal({ exercise, onClose }: ExerciseModalProps)
           </button>
         </div>
 
-        <div className="grid gap-6 p-6 md:grid-cols-2">
-          {/* Demo and tracker */}
-          <div className="space-y-5">
+        {/* On a phone the blocks stack: demo, technique, then video and tracker. */}
+        <div className="grid gap-5 p-4 sm:p-6 md:grid-cols-2 md:gap-6">
+          {/* Demo */}
+          <div>
             {demo ? (
-              <div>
+              <>
                 <ExerciseFigure key={demo.key} demo={demo} />
-                <p className="mt-2 text-center text-xs text-gray-500">{t('pattern', { name: demo.name[lang] })}</p>
+                <p className="mt-2 text-center text-xs text-gray-500">
+                  {guide ? t('similar', { name: demo.name[lang] }) : t('pattern', { name: demo.name[lang] })}
+                </p>
+              </>
+            ) : steps.length > 0 ? (
+              // No animation for this movement: walk through the guide one step at a time instead.
+              <div className="rounded-xl border border-gray-200 bg-gradient-to-b from-orange-50 to-white p-5">
+                <p className="text-sm font-semibold text-fitness-orange">{t('stepOf', { current: current + 1, total: steps.length })}</p>
+                <div className="my-3 flex gap-1.5" aria-hidden="true">
+                  {steps.map((_, i) => (
+                    <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= current ? 'bg-fitness-orange' : 'bg-gray-200'}`} />
+                  ))}
+                </div>
+                <p className="min-h-[7rem] text-lg font-medium leading-snug text-gray-900" aria-live="polite">
+                  {steps[current]}
+                </p>
+                <div className="mt-4 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setStep(current - 1)}
+                    disabled={current === 0}
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-gray-300 py-3 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                    {t('prev')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStep(current + 1)}
+                    disabled={current === steps.length - 1}
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fitness-orange to-fitness-purple py-3 font-semibold text-white hover:opacity-90 disabled:opacity-40"
+                  >
+                    {t('next')}
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-600">
-                {t('noDemo')}
+              <div className="flex min-h-[8rem] items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-600">
+                {waiting && <Loader className="h-4 w-4 flex-shrink-0 animate-spin text-fitness-purple" />}
+                {waiting ? t('aiLoading') : t('noDemo')}
+              </div>
+            )}
+          </div>
+
+          {/* Technique */}
+          <div className="space-y-5 md:row-span-2">
+            {muscles && (
+              <div>
+                <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-500">{t('muscles')}</h3>
+                <p className="text-gray-900">{muscles}</p>
               </div>
             )}
 
+            {demo && steps.length > 0 && (
+              <div>
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                  {t('technique')}
+                  {guide && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium normal-case tracking-normal text-fitness-purple">
+                      <Sparkles className="h-3 w-3" />
+                      {t('aiBadge')}
+                    </span>
+                  )}
+                </h3>
+                <ol className="space-y-2">
+                  {steps.map((item, i) => (
+                    <li key={i} className="flex gap-3">
+                      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-fitness-orange">
+                        {i + 1}
+                      </span>
+                      <span className="text-gray-800">{item}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {demo && steps.length === 0 && waiting && (
+              <p className="flex items-center gap-2 text-sm text-gray-600">
+                <Loader className="h-4 w-4 animate-spin text-fitness-purple" />
+                {t('aiLoading')}
+              </p>
+            )}
+
+            {guide?.breathing && (
+              <p className="flex gap-2 rounded-lg bg-blue-50 px-4 py-3 text-sm text-gray-800">
+                <Wind className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary-600" />
+                <span>
+                  <span className="font-semibold">{t('breathing')}: </span>
+                  {guide.breathing}
+                </span>
+              </p>
+            )}
+
+            {mistakes.length > 0 && (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
+                <p className="mb-1 flex items-center gap-2 font-semibold">
+                  <AlertTriangle className="h-4 w-4" />
+                  {t('mistakes')}
+                </p>
+                <ul className="space-y-1">
+                  {mistakes.map((mistake, i) => (
+                    <li key={i}>{mistake}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {exercise.notes && (
+              <div>
+                <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-500">{t('coachNote')}</h3>
+                <p className="italic text-gray-700">{exercise.notes}</p>
+              </div>
+            )}
+
+            {aiAvailable && !guide && guideState !== 'loading' && (
+              <div>
+                {guideState === 'error' && <p className="mb-2 text-sm text-red-600">{t('aiError')}</p>}
+                <button
+                  type="button"
+                  onClick={askAI}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-50 px-4 py-3 font-semibold text-fitness-purple hover:bg-purple-100"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {t('askAI')}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Video and tracker */}
+          <div className="space-y-5">
             <a
               href={videoUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 rounded-lg border-2 border-primary-500 px-4 py-2.5 font-semibold text-primary-600 hover:bg-primary-50"
+              className="flex items-center justify-center gap-2 rounded-lg border-2 border-primary-500 px-4 py-3 font-semibold text-primary-600 hover:bg-primary-50"
             >
               <ExternalLink className="h-4 w-4" />
               {t('watchVideo')}
@@ -177,92 +319,12 @@ export default function ExerciseModal({ exercise, onClose }: ExerciseModalProps)
                 <button
                   type="button"
                   onClick={completeSet}
-                  className="w-full rounded-lg bg-gradient-to-r from-fitness-orange to-fitness-purple px-4 py-2.5 font-semibold text-white hover:opacity-90"
+                  className="w-full rounded-lg bg-gradient-to-r from-fitness-orange to-fitness-purple px-4 py-3 font-semibold text-white hover:opacity-90"
                 >
                   {t('setDone', { current: doneSets + 1, total: totalSets })}
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Technique */}
-          <div className="space-y-5">
-            {muscles && (
-              <div>
-                <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-500">{t('muscles')}</h3>
-                <p className="text-gray-900">{muscles}</p>
-              </div>
-            )}
-
-            {steps.length > 0 && (
-              <div>
-                <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
-                  {t('technique')}
-                  {guide && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium normal-case tracking-normal text-fitness-purple">
-                      <Sparkles className="h-3 w-3" />
-                      {t('aiBadge')}
-                    </span>
-                  )}
-                </h3>
-                <ol className="space-y-2">
-                  {steps.map((step, i) => (
-                    <li key={i} className="flex gap-3">
-                      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-fitness-orange">
-                        {i + 1}
-                      </span>
-                      <span className="text-gray-800">{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-
-            {guide?.breathing && (
-              <p className="flex gap-2 rounded-lg bg-blue-50 px-4 py-3 text-sm text-gray-800">
-                <Wind className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary-600" />
-                <span>
-                  <span className="font-semibold">{t('breathing')}: </span>
-                  {guide.breathing}
-                </span>
-              </p>
-            )}
-
-            {mistakes.length > 0 && (
-              <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
-                <p className="mb-1 flex items-center gap-2 font-semibold">
-                  <AlertTriangle className="h-4 w-4" />
-                  {t('mistakes')}
-                </p>
-                <ul className="space-y-1">
-                  {mistakes.map((mistake, i) => (
-                    <li key={i}>{mistake}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {exercise.notes && (
-              <div>
-                <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-500">{t('coachNote')}</h3>
-                <p className="italic text-gray-700">{exercise.notes}</p>
-              </div>
-            )}
-
-            {aiAvailable && !guide && (
-              <div>
-                <button
-                  type="button"
-                  onClick={askAI}
-                  disabled={guideState === 'loading'}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-50 px-4 py-2.5 font-semibold text-fitness-purple hover:bg-purple-100 disabled:opacity-60"
-                >
-                  {guideState === 'loading' ? <Loader className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  {guideState === 'loading' ? t('aiLoading') : t('askAI')}
-                </button>
-                {guideState === 'error' && <p className="mt-2 text-sm text-red-600">{t('aiError')}</p>}
-              </div>
-            )}
           </div>
         </div>
       </motion.div>

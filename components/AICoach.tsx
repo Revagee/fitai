@@ -6,6 +6,7 @@ import { Send, Bot, User as UserIcon, Loader, Trash2, Undo2, Dumbbell, UtensilsC
 import { chatWithAI } from '@/lib/gemini'
 import { applyPlanChanges, hasChanges, type ChangeSummary } from '@/lib/plan'
 import { useUser } from '@/context/UserContext'
+import { clearExerciseMarks } from '@/lib/week'
 import { useLocale, useTranslations } from 'next-intl'
 import Button from './ui/Button'
 import Card from './ui/Card'
@@ -92,7 +93,7 @@ export default function AICoach({ active = true, onViewPlan }: AICoachProps) {
       if (result.changes && currentPlan) {
         const applied = applyPlanChanges(currentPlan, result.changes)
         if (hasChanges(applied.summary)) {
-          setUserData((current: any) => ({ ...current, plan: applied.plan }))
+          setUserData((current: any) => clearExerciseMarks({ ...current, plan: applied.plan }, applied.summary.workoutDays))
           reply.summary = applied.summary
           reply.undoPlan = currentPlan
         }

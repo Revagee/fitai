@@ -38,9 +38,10 @@ export function checkAIConfigured(): Promise<boolean> {
   return configured;
 }
 
-export async function generateFitnessPlan(userData: any, locale: string = "en") {
+/** `previous` (last week's workouts and how many were done) makes the new plan a continuation of it. */
+export async function generateFitnessPlan(userData: any, locale: string = "en", previous?: unknown) {
   try {
-    const { plan } = await callAI<{ plan: any }>({ action: "plan", userData: profileOf(userData), locale });
+    const { plan } = await callAI<{ plan: any }>({ action: "plan", userData: profileOf(userData), locale, previous });
     if (!Array.isArray(plan?.workoutPlan) || !plan?.mealPlan) {
       throw new Error("The plan has an unexpected structure");
     }
@@ -56,6 +57,12 @@ const NOT_CONFIGURED: Record<string, string> = {
   en: "The AI coach needs a Gemini API key. Add GEMINI_API_KEY to .env.local and restart the app.",
   uk: "Для роботи ШІ-тренера потрібен ключ Gemini API. Додайте GEMINI_API_KEY у .env.local і перезапустіть застосунок.",
   ru: "Для работы ИИ-тренера нужен ключ Gemini API. Добавьте GEMINI_API_KEY в .env.local и перезапустите приложение.",
+};
+
+const RATE_LIMITED: Record<string, string> = {
+  en: "Too many requests in a row. Please wait a minute and try again.",
+  uk: "Забагато запитів поспіль. Зачекайте хвилину і спробуйте ще раз.",
+  ru: "Слишком много запросов подряд. Подождите минуту и попробуйте снова.",
 };
 
 const CHAT_FAILED: Record<string, string> = {
@@ -86,6 +93,7 @@ export async function chatWithAI(options: {
     return { reply: result.reply, changes: result.changes || null };
   } catch (error) {
     if (isNotConfigured(error)) return { reply: NOT_CONFIGURED[lang] || NOT_CONFIGURED.en, changes: null };
+    if (error instanceof AIError && error.code === "rate_limited") return { reply: RATE_LIMITED[lang] || RATE_LIMITED.en, changes: null };
     console.error("Error chatting with AI:", error);
     return { reply: CHAT_FAILED[lang] || CHAT_FAILED.en, changes: null };
   }

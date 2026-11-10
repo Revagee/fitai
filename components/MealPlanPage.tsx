@@ -23,8 +23,9 @@ import Navbar from './ui/Navbar'
 import Card from './ui/Card'
 import Button from './ui/Button'
 import { exportMealPlanPDF } from '@/lib/pdfExport'
-import { generateFitnessPlan } from '@/lib/gemini'
-import { getMealDays, mealKind } from '@/lib/plan'
+import { chatWithAI, generateFitnessPlan } from '@/lib/gemini'
+import { applyPlanChanges, getMealDays, mealKind } from '@/lib/plan'
+import { startNewWeek } from '@/lib/week'
 
 export default function MealPlanPage() {
   const { userData, setUserData, loading: userLoading } = useUser()
@@ -34,6 +35,26 @@ export default function MealPlanPage() {
   const [loading, setLoading] = useState(false)
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [selectedMeal, setSelectedMeal] = useState<any | null>(null)
+  const [swapState, setSwapState] = useState<'idle' | 'loading' | 'error'>('idle')
+
+  // Asks the coach for a different dish in place of the open meal and applies it to that day only.
+  const swapMeal = async () => {
+    if (!selectedMeal || !selectedDay || !userData?.plan) return
+    setSwapState('loading')
+    const result = await chatWithAI({
+      message: `In the meal plan, replace the meal "${selectedMeal.meal}" on day ${selectedDay} with a different dish of similar calories and macros. Change only that meal and keep the other meals of that day exactly as they are.`,
+      userData,
+      locale,
+    })
+    const mealDays = (result.changes?.mealDays || []).filter((day) => day.day === selectedDay)
+    if (mealDays.length === 0) {
+      setSwapState('error')
+      return
+    }
+    setUserData((current: any) => ({ ...current, plan: applyPlanChanges(current.plan, { mealDays }).plan }))
+    setSwapState('idle')
+    setSelectedMeal(null)
+  }
 
   // Plans saved in the old one-day format are repeated across the week.
   const mealPlans = useMemo(() => getMealDays(userData?.plan?.mealPlan, true), [userData?.plan?.mealPlan])
@@ -61,7 +82,7 @@ export default function MealPlanPage() {
     setLoading(true)
     try {
       const newPlan = await generateFitnessPlan(userData, locale)
-      setUserData((current: any) => ({ ...current, plan: newPlan, createdAt: Date.now() }))
+      setUserData((current: any) => startNewWeek(current, newPlan))
     } catch (error) {
       console.error('Error regenerating plan:', error)
       alert(t('regenerateError'))
@@ -218,7 +239,10 @@ export default function MealPlanPage() {
                       <Calendar className="w-6 h-6 text-white" />
                     </div>
                     <h3 className="font-bold text-lg">{getDayName(dayNumber)}</h3>
-                    <p className="text-sm text-gray-500">{t('day')} {dayNumber}</p>
+                    <p className="text-sm text-gray-500">
+                      {t('day')} {dayNumber}
+                      {plan.totalCalories > 0 && <> · {plan.totalCalories} {t('cal')}</>}
+                    </p>
                   </div>
 
                   <div className="space-y-2 min-h-[80px]">
@@ -468,6 +492,16 @@ export default function MealPlanPage() {
                           </div>
                         )}
                       </div>
+                    </div>
+                  )}
+
+                  {selectedDay && (
+                    <div>
+                      <Button variant="outline" onClick={swapMeal} isLoading={swapState === 'loading'} className="w-full">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        {t('swap')}
+                      </Button>
+                      {swapState === 'error' && <p className="mt-2 text-sm text-red-600">{t('swapError')}</p>}
                     </div>
                   )}
 

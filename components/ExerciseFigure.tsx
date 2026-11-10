@@ -32,7 +32,43 @@ function limb(root: Point, target: Point, length: number, bend: number): { mid: 
   }
 }
 
-function solve(demo: ExerciseDemo, t: number) {
+// Front view: the pose gives the right-hand side, the left is its mirror image around the centre line.
+const SHOULDER_HALF = 12
+const HIP_HALF = 7
+const CENTER = 100
+
+function solveFront(demo: ExerciseDemo, t: number) {
+  const at = (key: 'hip' | 'sh' | 'hand' | 'foot') => lerp(demo.a[key], demo.b[key], t)
+  const hip = at('hip')
+  const shoulder = at('sh')
+  const side = (sign: 1 | -1) => {
+    const flip = (p: Point): Point => (sign > 0 ? p : [2 * CENTER - p[0], p[1]])
+    const armRoot = flip([shoulder[0] + SHOULDER_HALF, shoulder[1]])
+    const legRoot = flip([hip[0] + HIP_HALF, hip[1]])
+    return {
+      arm: { root: armRoot, ...limb(armRoot, flip(at('hand')), ARM, demo.elbow * sign) },
+      leg: { root: legRoot, ...limb(legRoot, flip(at('foot')), LEG, demo.knee * sign) },
+    }
+  }
+  const right = side(1)
+  const left = side(-1)
+  return {
+    hip,
+    shoulder,
+    head: [shoulder[0], shoulder[1] - NECK] as Point,
+    arm: right.arm,
+    leg: right.leg,
+    arm2: left.arm,
+    leg2: left.leg,
+  }
+}
+
+type Limb = { mid: Point; end: Point; root?: Point }
+// A limb drawn from the body's centre line; front-view limbs pass through their own shoulder or hip first.
+const limbPath = (from: Point, part: Limb) => path(from, ...(part.root ? [part.root] : []), part.mid, part.end)
+
+function solve(demo: ExerciseDemo, t: number): { hip: Point; shoulder: Point; head: Point; arm: Limb; leg: Limb; arm2: Limb | null; leg2: Limb | null } {
+  if (demo.view === 'front') return solveFront(demo, t)
   const { a, b } = demo
   const at = (key: keyof Pose) => lerp(a[key] as Point, b[key] as Point, t)
 
@@ -115,13 +151,14 @@ export default function ExerciseFigure({ demo }: ExerciseFigureProps) {
 
   const stroke = (part: 'legs' | 'arms' | 'core') => (demo.highlight === part ? COLORS.active : COLORS.body)
   const line = { fill: 'none', strokeWidth: 7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  const front = demo.view === 'front'
   const hand = body.arm.end
   const foot = body.leg.end
 
   return (
     <div>
       <div className="rounded-xl bg-gradient-to-b from-orange-50 to-white border border-gray-200">
-        <svg viewBox="0 0 200 190" className="w-full h-auto" role="img" aria-label={t('animation')}>
+        <svg viewBox="0 0 200 190" className="mx-auto h-auto max-h-[42vh] w-full" role="img" aria-label={t('animation')}>
           {/* Scene */}
           <line x1="8" y1={FLOOR + 4} x2="192" y2={FLOOR + 4} stroke={COLORS.scene} strokeWidth="2" strokeLinecap="round" />
           {demo.scene === 'mat' && <rect x="14" y={FLOOR} width="172" height="4" rx="2" fill="#e9d5ff" />}
@@ -130,6 +167,13 @@ export default function ExerciseFigure({ demo }: ExerciseFigureProps) {
               <line x1="44" y1="141" x2="126" y2="141" strokeWidth="7" />
               <line x1="56" y1="144" x2="56" y2={FLOOR + 2} />
               <line x1="114" y1="144" x2="114" y2={FLOOR + 2} />
+            </g>
+          )}
+          {demo.scene === 'bars' && (
+            <g stroke={COLORS.scene} strokeWidth="5" strokeLinecap="round">
+              <line x1="82" y1="113" x2="126" y2="113" strokeWidth="6" />
+              <line x1="88" y1="116" x2="88" y2={FLOOR + 2} />
+              <line x1="120" y1="116" x2="120" y2={FLOOR + 2} />
             </g>
           )}
           {demo.scene === 'seat' && (
@@ -146,17 +190,18 @@ export default function ExerciseFigure({ demo }: ExerciseFigureProps) {
           )}
 
           {/* Far-side limbs */}
-          {body.leg2 && <path d={path(body.hip, body.leg2.mid, body.leg2.end)} stroke={COLORS.far} {...line} />}
-          {body.arm2 && <path d={path(body.shoulder, body.arm2.mid, body.arm2.end)} stroke={COLORS.far} {...line} />}
+          {body.leg2 && <path d={limbPath(body.hip, body.leg2)} stroke={front ? stroke('legs') : COLORS.far} {...line} />}
+          {body.arm2 && <path d={limbPath(body.shoulder, body.arm2)} stroke={front ? stroke('arms') : COLORS.far} {...line} />}
 
           {/* Body */}
-          <path d={path(body.hip, body.leg.mid, foot)} stroke={stroke('legs')} {...line} />
+          <path d={limbPath(body.hip, body.leg)} stroke={stroke('legs')} {...line} />
           <path d={path(body.hip, body.shoulder)} stroke={stroke('core')} {...line} strokeWidth={9} />
           <circle cx={body.head[0]} cy={body.head[1]} r="9" fill={COLORS.body} />
-          <path d={path(body.shoulder, body.arm.mid, hand)} stroke={stroke('arms')} {...line} />
+          <path d={limbPath(body.shoulder, body.arm)} stroke={stroke('arms')} {...line} />
 
           {/* Equipment */}
           {demo.prop === 'dumbbell' && <circle cx={hand[0]} cy={hand[1]} r="6" fill={COLORS.prop} />}
+          {demo.prop === 'dumbbell' && front && body.arm2 && <circle cx={body.arm2.end[0]} cy={body.arm2.end[1]} r="6" fill={COLORS.prop} />}
           {demo.prop === 'barbell' && (
             <g>
               <circle cx={hand[0]} cy={hand[1]} r="10" fill="none" stroke={COLORS.prop} strokeWidth="4" />

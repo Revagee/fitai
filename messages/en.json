@@ -12,7 +12,11 @@
     "edit": "Edit",
     "close": "Close",
     "getStarted": "Get Started",
-    "learnMore": "Learn More"
+    "learnMore": "Learn More",
+    "errorTitle": "Something went wrong",
+    "errorText": "The page failed to load. Reloading usually fixes it.",
+    "retry": "Try again",
+    "reload": "Reload the page"
   },
   "nav": {
     "home": "Home",
@@ -141,7 +145,9 @@
       "equipmentNone": "None (Bodyweight)",
       "endurance": "Endurance",
       "flexibility": "Flexibility & Mobility",
-      "maintenance": "Maintenance"
+      "maintenance": "Maintenance",
+      "trainingNotes": "Training wishes and limitations (optional)",
+      "trainingNotesPlaceholder": "e.g. sore knee — no jumping; I like swimming and yoga; 30 minutes at home in the morning"
     },
     "preferences": {
       "description": "Your dietary preferences and restrictions",
@@ -214,7 +220,16 @@
     },
     "day": "Day {day}",
     "restDay": "Rest day",
-    "demoNotice": "Demo plan: built from templates without AI. Add a Gemini API key for a personalized plan, and check the ingredients against your allergies."
+    "demoNotice": "Demo plan: built from templates without AI. Add a Gemini API key for a personalized plan, and check the ingredients against your allergies.",
+    "week": {
+      "title": "Training week · day {day} of 7",
+      "overTitle": "The week is over",
+      "finishedTitle": "All workouts of the week are done 🎉",
+      "done": "Workouts done: {done} of {total}.",
+      "nextHint": "Choose what is next: a new plan that builds on this one, or repeat this week.",
+      "newPlan": "New plan for the week",
+      "repeat": "Repeat this week"
+    }
   },
   "progress": {
     "title": "Progress Tracking",
@@ -293,7 +308,9 @@
     "instructions": "Instructions",
     "debugNoMealData": "Debug: Plan exists but no meal data found. Try regenerating the plan.",
     "noOptionsAvailable": "No options available",
-    "more": "+{count} more"
+    "more": "+{count} more",
+    "swap": "Swap this meal (AI)",
+    "swapError": "Couldn't swap the meal. Please try again."
   },
   "aiCoach": {
     "title": "AI Fitness Coach",
@@ -367,12 +384,14 @@
     "quickActions": "Quick Actions",
     "viewDashboard": "View Dashboard",
     "viewProgress": "View Progress",
-    "updateProfile": "Update Profile"
+    "updateProfile": "Update Profile",
+    "trainingNotes": "Training wishes",
+    "planHint": "Changes are used by the AI coach right away and by the next plan you generate."
   },
   "exercise": {
     "animation": "Animated demonstration of the exercise",
     "pattern": "Movement pattern: {name}",
-    "noDemo": "There is no animation for this exercise yet — watch a video or ask the AI for the technique.",
+    "noDemo": "There is no animation for this exercise yet — watch a video for the technique.",
     "watchVideo": "Watch a video",
     "videoQuery": "proper form",
     "muscles": "Muscles worked",
@@ -399,6 +418,10 @@
     "skipRest": "Skip",
     "allDone": "All sets done! 💪",
     "reset": "Reset",
-    "close": "Close"
+    "close": "Close",
+    "similar": "Similar movement: {name}. The technique below is for your exact exercise.",
+    "stepOf": "Step {current} of {total}",
+    "prev": "Back",
+    "next": "Next"
   }
 }

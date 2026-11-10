@@ -40,6 +40,7 @@ const PROFILE_FIELDS = [
   'fitnessGoal',
   'trainingFrequency',
   'equipmentAccess',
+  'trainingNotes',
   'dietPreferences',
   'allergies',
 ] as const

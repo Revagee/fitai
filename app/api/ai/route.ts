@@ -14,6 +14,24 @@ const LOCALES = ['en', 'uk', 'ru']
 
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status })
 
+// A simple per-address limit so one visitor cannot burn the whole Gemini quota.
+// It lives in memory: enough for a single server, not shared between serverless instances.
+const WINDOW_MS = 60_000
+const MAX_REQUESTS = 20
+const hits = new Map<string, { count: number; resetAt: number }>()
+
+function overLimit(request: Request): boolean {
+  const address = (request.headers.get('x-forwarded-for') || 'local').split(',')[0].trim()
+  const now = Date.now()
+  const entry = hits.get(address)
+  if (!entry || entry.resetAt < now) {
+    if (hits.size > 5000) hits.clear()
+    hits.set(address, { count: 1, resetAt: now + WINDOW_MS })
+    return false
+  }
+  return ++entry.count > MAX_REQUESTS
+}
+
 /** Lets the UI know whether AI features are available, without revealing anything about the key. */
 export function GET() {
   return NextResponse.json({ configured: aiConfigured })
@@ -34,6 +52,7 @@ export async function POST(request: Request) {
   }
 
   if (!aiConfigured) return fail('not_configured', 501)
+  if (overLimit(request)) return fail('rate_limited', 429)
 
   let body: any
   try {
@@ -50,7 +69,7 @@ export async function POST(request: Request) {
     switch (body.action) {
       case 'plan':
         if (!body.userData || typeof body.userData !== 'object') return fail('bad_request', 400)
-        return NextResponse.json({ plan: await planFromAI(body.userData, locale) })
+        return NextResponse.json({ plan: await planFromAI(body.userData, locale, body.previous) })
 
       case 'chat': {
         if (typeof body.message !== 'string' || !body.message.trim()) return fail('bad_request', 400)

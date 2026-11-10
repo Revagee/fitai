@@ -31,7 +31,8 @@ export interface ExerciseDemo {
   swingLegs?: boolean // the leg stays straight and swings from the hip
   highlight: 'legs' | 'arms' | 'core'
   prop?: 'dumbbell' | 'barbell' | 'bar' | 'platform'
-  scene?: 'bench' | 'seat' | 'mat'
+  scene?: 'bench' | 'seat' | 'mat' | 'bars'
+  view?: 'front' // drawn facing the viewer, both sides mirrored; default is a side view
   match: RegExp
 }
 
@@ -79,6 +80,67 @@ export const EXERCISE_DEMOS: ExerciseDemo[] = [
     highlight: 'arms',
     prop: 'bar',
     match: /pull[- ]?up|chin[- ]?up|lat pull|pulldown|підтяг|подтяг|тяга верхн/i,
+  },
+  {
+    key: 'dip',
+    name: ['Dips', 'Віджимання на брусах', 'Отжимания на брусьях'],
+    muscles: ['Triceps, chest, front delts', 'Трицепси, груди, передні дельти', 'Трицепсы, грудь, передние дельты'],
+    steps: [
+      ['Support yourself on the bars with straight arms, shoulders down', 'Вийдіть в упор на брусах на прямих руках, плечі опущені', 'Выйдите в упор на брусьях на прямых руках, плечи опущены'],
+      ['Lean slightly forward and bend your elbows, lowering under control', 'Трохи нахиліться вперед і згинайте лікті, плавно опускаючись', 'Слегка наклонитесь вперёд и сгибайте локти, плавно опускаясь'],
+      ['Stop when your shoulders are level with your elbows', 'Зупиніться, коли плечі опиняться на рівні ліктів', 'Остановитесь, когда плечи окажутся на уровне локтей'],
+      ['Press up until your arms are straight', 'Вичавіть себе вгору до випрямлення рук', 'Выжмите себя вверх до выпрямления рук'],
+    ],
+    mistake: ['Dropping too deep or shrugging the shoulders up to the ears', 'Занадто глибоке опускання або плечі, підтягнуті до вух', 'Слишком глубокое опускание или плечи, поднятые к ушам'],
+    a: { hip: [98, 110], sh: [100, 66], hand: [103, 110], foot: [84, 158] },
+    b: { hip: [94, 132], sh: [106, 90], hand: [103, 110], foot: [80, 174] },
+    knee: -1,
+    elbow: 1,
+    effort: 'a',
+    highlight: 'arms',
+    scene: 'bars',
+    match: /\bdips?\b|брус/i,
+  },
+  {
+    key: 'lateral',
+    name: ['Lateral raise', 'Розведення рук у сторони', 'Разведение рук в стороны'],
+    muscles: ['Side delts, upper traps', 'Середні дельти, верх трапецій', 'Средние дельты, верх трапеций'],
+    steps: [
+      ['Stand tall, weights at your sides, elbows slightly bent', 'Станьте рівно, вага вздовж тіла, лікті трохи зігнуті', 'Встаньте ровно, вес вдоль тела, локти слегка согнуты'],
+      ['Raise your arms out to the sides up to shoulder height', 'Піднімайте руки через сторони до рівня плечей', 'Поднимайте руки через стороны до уровня плеч'],
+      ['Pause for a moment at the top, wrists no higher than elbows', "Затримайтеся на мить угорі, зап'ястя не вище ліктів", 'Задержитесь на мгновение вверху, запястья не выше локтей'],
+      ['Lower slowly', 'Повільно опустіть', 'Медленно опустите'],
+    ],
+    mistake: ['Swinging the weights up with the body', 'Закидання ваги ривком корпуса', 'Забрасывание веса рывком корпуса'],
+    a: { hip: [100, 108], sh: [100, 64], hand: [118, 107], foot: [108, 176] },
+    b: { hip: [100, 108], sh: [100, 64], hand: [156, 66], foot: [108, 176] },
+    knee: -1,
+    elbow: -1,
+    view: 'front',
+    effort: 'b',
+    highlight: 'arms',
+    prop: 'dumbbell',
+    match: /lateral raise|side raise|розведення[^,;]*(сторон|стоячи)|махи[^,;]*сторон|разведени[ея][^,;]*сторон|махи[^,;]*в стороны/i,
+  },
+  {
+    key: 'jack',
+    name: ['Jumping jacks', 'Стрибки «Джампінг Джек»', 'Прыжки «Джампинг Джек»'],
+    muscles: ['Whole body, heart and lungs', 'Усе тіло, серцево-судинна система', 'Всё тело, сердечно-сосудистая система'],
+    steps: [
+      ['Stand with feet together, arms at your sides', 'Станьте, ноги разом, руки вздовж тіла', 'Встаньте, ноги вместе, руки вдоль тела'],
+      ['Jump your feet apart while raising your arms overhead', 'У стрибку розведіть ноги й підніміть руки над головою', 'В прыжке разведите ноги и поднимите руки над головой'],
+      ['Jump back to the start, landing softly on the balls of your feet', "Стрибком поверніться назад, м'яко приземляючись на носки", 'Прыжком вернитесь назад, мягко приземляясь на носки'],
+      ['Keep an even rhythm and breathe steadily', 'Тримайте рівний ритм і дихайте спокійно', 'Держите ровный ритм и дышите спокойно'],
+    ],
+    mistake: ['Landing on stiff legs or flat feet', 'Приземлення на прямі ноги або всю стопу', 'Приземление на прямые ноги или всю стопу'],
+    a: { hip: [100, 108], sh: [100, 64], hand: [118, 106], foot: [108, 176] },
+    b: { hip: [100, 106], sh: [100, 62], hand: [136, 24], foot: [134, 174] },
+    knee: -1,
+    elbow: -1,
+    view: 'front',
+    period: 1.1,
+    highlight: 'legs',
+    match: /jumping jack|star jump|джампінг|джампинг|джек|стрибки[^,;]*розведенн|прыжки[^,;]*разведени/i,
   },
   {
     key: 'pushup',
@@ -361,19 +423,27 @@ export const EXERCISE_DEMOS: ExerciseDemo[] = [
 
 // Names that contain a keyword above but are a different movement: better no demo than a wrong one.
 const NO_DEMO =
-  /leg curl|hamstring curl|leg extension|calf|upright|\bdips?\b|згинання ніг|розгинання ніг|сгибани[ея] ног|разгибани[ея] ног|литк|икр|брус|зворотн[^,;]*віджим|обратн[^,;]*отжим/i
+  /leg curl|hamstring curl|leg extension|calf|upright|згинання ніг|розгинання ніг|сгибани[ея] ног|разгибани[ея] ног|литк|икр|зворотн[^,;]*віджим|обратн[^,;]*отжим/i
 const SPLIT_SQUAT = /split squat|болгарськ|болгарск/i
 
 export const DEMO_KEYS = EXERCISE_DEMOS.map((demo) => demo.key)
 
-/** Picks the demo for an exercise: the AI's explicit choice first, then a keyword match on the name. */
-export function findDemo(name: string, demoKey?: string): ExerciseDemo | null {
+/**
+ * Picks the demo for an exercise. `exact` means the name itself says it is this movement, so the demo's
+ * technique notes apply; otherwise the demo is only a similar movement picked by the AI, good for the
+ * animation but not for the text.
+ */
+export function matchDemo(name: string, demoKey?: string): { demo: ExerciseDemo; exact: boolean } | null {
   const byKey = (key: string) => EXERCISE_DEMOS.find((demo) => demo.key === key) || null
-  const explicit = demoKey ? byKey(demoKey) : null
-  if (explicit) return explicit
-  if (NO_DEMO.test(name || '')) return null
-  if (SPLIT_SQUAT.test(name || '')) return byKey('lunge')
-  return EXERCISE_DEMOS.find((demo) => demo.match.test(name || '')) || null
+  const suggested = demoKey ? byKey(demoKey) : null
+  const named = NO_DEMO.test(name || '')
+    ? null
+    : SPLIT_SQUAT.test(name || '')
+    ? byKey('lunge')
+    : EXERCISE_DEMOS.find((demo) => demo.match.test(name || '')) || null
+
+  if (named && (!suggested || suggested === named)) return { demo: named, exact: true }
+  return suggested ? { demo: suggested, exact: false } : null
 }
 
 export const langIndex = (locale: string) => (locale === 'uk' ? 1 : locale === 'ru' ? 2 : 0)

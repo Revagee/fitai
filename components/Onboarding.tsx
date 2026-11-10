@@ -23,6 +23,7 @@ interface FormData {
   fitnessGoal: string;
   trainingFrequency: string;
   equipmentAccess: string[];
+  trainingNotes: string;
   dietPreferences: string[];
   allergies: string;
 }
@@ -52,6 +53,7 @@ export default function Onboarding() {
     fitnessGoal: '',
     trainingFrequency: '',
     equipmentAccess: [],
+    trainingNotes: '',
     dietPreferences: [],
     allergies: ''
   });
@@ -390,6 +392,20 @@ export default function Onboarding() {
                           </motion.label>
                         ))}
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        {t('goals.trainingNotes')}
+                      </label>
+                      <textarea
+                        name="trainingNotes"
+                        value={formData.trainingNotes}
+                        onChange={handleInputChange}
+                        maxLength={500}
+                        placeholder={t('goals.trainingNotesPlaceholder')}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fitness-orange focus:ring-2 focus:ring-fitness-orange/20 transition-all resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white h-28"
+                      />
                     </div>
                   </div>
                 </div>
